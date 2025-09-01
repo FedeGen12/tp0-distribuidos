@@ -1,7 +1,6 @@
 package common
 
 import (
-	"fmt"
 	"os"
 	"os/signal"
 	"syscall"
@@ -84,22 +83,20 @@ func (c *Client) StartClientLoop() {
 			}
 		}(c.socket)
 
-		msg := fmt.Sprintf(
-			"[CLIENT %v] Message\n",
-			c.config.ID,
-		)
+		msg := BetMessage{
+			Agency:    c.config.ID,
+			Firstname: os.Getenv("NOMBRE"),
+			Lastname:  os.Getenv("APELLIDO"),
+			Document:  os.Getenv("DOCUMENTO"),
+			Birthdate: os.Getenv("NACIMIENTO"),
+			Number:    os.Getenv("NUMERO"),
+		}
 
 		err := c.socket.Send(msg)
 		if err != nil {
-			log.Errorf("action: apuesta_enviada | result: fail | error: %v",
-				err,
-			)
+			log.Errorf("action: apuesta_enviada | result: fail | error: %v", err)
 			return
 		}
-
-		log.Infof("action: apuesta_enviada | result: success | dni: %v | numero: %v",
-			c.config.ID,
-			4,
-		)
+		log.Infof("action: apuesta_enviada | result: success | dni: %v | numero: %v", c.config.ID, 4)
 	}
 }
