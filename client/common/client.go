@@ -54,21 +54,9 @@ func (c *Client) StartClientLoop() {
 
 	select {
 	case <-sigs:
-		log.Infof("action: shutdown | result: success | client_id: %v | msg: SIGTERM received", c.config.ID)
-		if c.socket != nil {
-			err := c.socket.Close()
-			if err != nil {
-				log.Criticalf(
-					"action: close socket | result: fail | client_id: %v | error: %v",
-					c.config.ID,
-					err,
-				)
-				return
-			}
-		}
+		c.sigtermHandler()
 		return
 	default:
-		// Create the connection the server in every loop iteration. Send an
 		if c.createClientSocket() != nil {
 			return
 		}
@@ -83,20 +71,40 @@ func (c *Client) StartClientLoop() {
 			}
 		}(c.socket)
 
-		msg := BetMessage{
-			Agency:    c.config.ID,
-			Firstname: os.Getenv("NOMBRE"),
-			Lastname:  os.Getenv("APELLIDO"),
-			Document:  os.Getenv("DOCUMENTO"),
-			Birthdate: os.Getenv("NACIMIENTO"),
-			Number:    os.Getenv("NUMERO"),
-		}
+		c.sendBet()
+	}
+}
 
-		err := c.socket.Send(msg)
+func (c *Client) sendBet() {
+	msg := BetMessage{
+		Agency:    c.config.ID,
+		Firstname: os.Getenv("NOMBRE"),
+		Lastname:  os.Getenv("APELLIDO"),
+		Document:  os.Getenv("DOCUMENTO"),
+		Birthdate: os.Getenv("NACIMIENTO"),
+		Number:    os.Getenv("NUMERO"),
+	}
+
+	err := c.socket.Send(msg)
+	if err != nil {
+		log.Errorf("action: apuesta_enviada | result: fail | error: %v", err)
+		return
+	}
+	log.Infof("action: apuesta_enviada | result: success | dni: %v | numero: %v", c.config.ID, 4)
+}
+
+func (c *Client) sigtermHandler() {
+	log.Infof("action: shutdown | result: success | client_id: %v | msg: SIGTERM received", c.config.ID)
+	if c.socket != nil {
+		err := c.socket.Close()
 		if err != nil {
-			log.Errorf("action: apuesta_enviada | result: fail | error: %v", err)
+			log.Criticalf(
+				"action: close socket | result: fail | client_id: %v | error: %v",
+				c.config.ID,
+				err,
+			)
 			return
 		}
-		log.Infof("action: apuesta_enviada | result: success | dni: %v | numero: %v", c.config.ID, 4)
 	}
+	return
 }
