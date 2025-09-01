@@ -21,7 +21,7 @@ class ClientSocket:
         return bytes(bytes_received)
 
     def recv(self):
-        bet_size = int.from_bytes(self._recv_all(BET_SIZE))
+        bet_size = int.from_bytes(self._recv_all(BET_SIZE), "big")
         bet_bytes = self._recv_all(bet_size)
         bet = Bet(*bet_bytes.decode().split(SEPARATOR))
         return bet
