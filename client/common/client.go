@@ -1,9 +1,7 @@
 package common
 
 import (
-	"bufio"
 	"fmt"
-	"net"
 	"os"
 	"os/signal"
 	"syscall"
@@ -22,7 +20,7 @@ type ClientConfig struct {
 // Client Entity that encapsulates how
 type Client struct {
 	config ClientConfig
-	conn   net.Conn
+	socket *ClientSocket
 }
 
 // NewClient Initializes a new client receiving the configuration
@@ -38,7 +36,7 @@ func NewClient(config ClientConfig) *Client {
 // failure, error is printed in stdout/stderr and exit 1
 // is returned
 func (c *Client) createClientSocket() error {
-	conn, err := net.Dial("tcp", c.config.ServerAddress)
+	socket, err := BindCLientSocket(c.config.ServerAddress)
 	if err != nil {
 		log.Criticalf(
 			"action: connect | result: fail | client_id: %v | error: %v",
@@ -46,7 +44,7 @@ func (c *Client) createClientSocket() error {
 			err,
 		)
 	}
-	c.conn = conn
+	c.socket = socket
 	return nil
 }
 
@@ -58,8 +56,16 @@ func (c *Client) StartClientLoop() {
 	select {
 	case <-sigs:
 		log.Infof("action: shutdown | result: success | client_id: %v | msg: SIGTERM received", c.config.ID)
-		if c.conn != nil {
-			c.conn.Close()
+		if c.socket != nil {
+			err := c.socket.Close()
+			if err != nil {
+				log.Criticalf(
+					"action: close socket | result: fail | client_id: %v | error: %v",
+					c.config.ID,
+					err,
+				)
+				return
+			}
 		}
 		return
 	default:
@@ -67,27 +73,33 @@ func (c *Client) StartClientLoop() {
 		if c.createClientSocket() != nil {
 			return
 		}
-		defer c.conn.Close()
+		defer func(socket *ClientSocket) {
+			err := socket.Close()
+			if err != nil {
+				log.Criticalf(
+					"action: close socket | result: fail | client_id: %v | error: %v",
+					c.config.ID,
+					err,
+				)
+			}
+		}(c.socket)
 
-		// TODO: Modify the send to avoid short-write
-		fmt.Fprintf(
-			c.conn,
+		msg := fmt.Sprintf(
 			"[CLIENT %v] Message\n",
 			c.config.ID,
 		)
-		msg, err := bufio.NewReader(c.conn).ReadString('\n')
 
+		err := c.socket.Send(msg)
 		if err != nil {
-			log.Errorf("action: receive_message | result: fail | client_id: %v | error: %v",
-				c.config.ID,
+			log.Errorf("action: apuesta_enviada | result: fail | error: %v",
 				err,
 			)
 			return
 		}
 
-		log.Infof("action: receive_message | result: success | client_id: %v | msg: %v",
+		log.Infof("action: apuesta_enviada | result: success | dni: %v | numero: %v",
 			c.config.ID,
-			msg,
+			4,
 		)
 	}
 }
