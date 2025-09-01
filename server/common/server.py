@@ -2,12 +2,18 @@ import signal
 import socket
 import logging
 
+from common.client_socket import ClientSocket
+
+from server.common.utils import store_bets
+
 
 class Server:
     def __init__(self, port, listen_backlog):
         # Initialize server socket
         self._running = True
         self._server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self._server_socket.bind(('', port))
+        self._server_socket.listen(listen_backlog)
 
         def sigterm_handler(_signum, _stacktrace):
             logging.info("action: shutdown | result: in_progress | msg: SIGTERM received")
@@ -15,9 +21,6 @@ class Server:
             self._server_socket.close()
 
         signal.signal(signal.SIGTERM, sigterm_handler)
-
-        self._server_socket.bind(('', port))
-        self._server_socket.listen(listen_backlog)
 
     def run(self):
         """
@@ -44,12 +47,9 @@ class Server:
         client socket will also be closed
         """
         try:
-            # TODO: Modify the receive to avoid short-reads
-            msg = client_sock.recv(1024).rstrip().decode('utf-8')
-            addr = client_sock.getpeername()
-            logging.info(f'action: receive_message | result: success | ip: {addr[0]} | msg: {msg}')
-            # TODO: Modify the send to avoid short-writes
-            client_sock.send("{}\n".format(msg).encode('utf-8'))
+            bet = client_sock.recv()
+            store_bets([bet])
+            logging.info(f"action: apuesta_almacenada | result: success | dni: {bet.document} | numero: {bet.number}")
         except OSError as e:
             logging.error("action: receive_message | result: fail | error: {e}")
         finally:
@@ -67,4 +67,4 @@ class Server:
         logging.info('action: accept_connections | result: in_progress')
         c, addr = self._server_socket.accept()
         logging.info(f'action: accept_connections | result: success | ip: {addr[0]}')
-        return c
+        return ClientSocket(c)
