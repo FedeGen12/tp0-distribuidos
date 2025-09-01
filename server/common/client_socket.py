@@ -25,8 +25,6 @@ class ClientSocket:
         bet_size = int.from_bytes(self._recv_all(BET_SIZE), "big")
         bet_bytes = self._recv_all(bet_size)
 
-        logging.info(f"Data: {bet_bytes.decode().split(SEPARATOR)}")
-
         bet = Bet(*bet_bytes.decode().split(SEPARATOR))
         return bet
 
