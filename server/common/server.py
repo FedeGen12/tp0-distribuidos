@@ -4,7 +4,7 @@ import logging
 
 from common.client_socket import ClientSocket
 
-from server.common.utils import store_bets
+from common.utils import store_bets
 
 
 class Server:
