@@ -1,6 +1,7 @@
 package common
 
 import (
+	"encoding/csv"
 	"os"
 	"os/signal"
 	"syscall"
@@ -12,8 +13,9 @@ var log = logging.MustGetLogger("log")
 
 // ClientConfig Configuration used by the client
 type ClientConfig struct {
-	ID            string
-	ServerAddress string
+	ID             string
+	ServerAddress  string
+	BatchMaxAmount int
 }
 
 // Client Entity that encapsulates how
@@ -47,7 +49,7 @@ func (c *Client) createClientSocket() error {
 	return nil
 }
 
-func (c *Client) StartClientLoop() {
+func (c *Client) StartClientLoop(agencyFilePath string) {
 	sigs := make(chan os.Signal, 1)
 	signal.Notify(sigs, syscall.SIGTERM)
 	defer close(sigs)
@@ -71,26 +73,22 @@ func (c *Client) StartClientLoop() {
 			}
 		}(c.socket)
 
-		c.sendBet()
+		bets := parseBets(c.config.ID, agencyFilePath)
+		if bets == nil {
+			return
+		}
+
+		c.sendBets(bets)
 	}
 }
 
-func (c *Client) sendBet() {
-	msg := BetMessage{
-		Agency:    c.config.ID,
-		Firstname: os.Getenv("NOMBRE"),
-		Lastname:  os.Getenv("APELLIDO"),
-		Document:  os.Getenv("DOCUMENTO"),
-		Birthdate: os.Getenv("NACIMIENTO"),
-		Number:    os.Getenv("NUMERO"),
-	}
-
-	err := c.socket.Send(msg)
+func (c *Client) sendBets(bets []BetMessage) {
+	err := c.socket.Send(bets[0]) // Envio solo la primera apuesta por ahora
 	if err != nil {
-		log.Errorf("action: apuesta_enviada | result: fail | error: %v", err)
+		log.Errorf("action: batch_enviado | result: fail | client_id: %v | error: %v", c.config.ID, err)
 		return
 	}
-	log.Infof("action: apuesta_enviada | result: success | dni: %v | numero: %v", msg.Document, msg.Number)
+	log.Infof("action: batch_enviado | result: success | client_id: %v", c.config.ID)
 }
 
 func (c *Client) sigtermHandler() {
@@ -107,4 +105,39 @@ func (c *Client) sigtermHandler() {
 		}
 	}
 	return
+}
+
+func parseBets(agencyId string, agencyFilePath string) []BetMessage {
+	agencyFile, err := os.Open(agencyFilePath)
+	if err != nil {
+		log.Criticalf("action: file_open | result: fail | client_id: %v | error: %v", agencyId, err)
+		return nil
+	}
+	defer func(agencyFile *os.File) {
+		closeErr := agencyFile.Close()
+		if closeErr != nil {
+			log.Criticalf("action: file_close | result: fail | client_id: %v | error: %v", agencyId, closeErr)
+		}
+	}(agencyFile)
+
+	fileReader := csv.NewReader(agencyFile)
+	bets := make([]BetMessage, 0)
+
+	for {
+		betLine, readErr := fileReader.Read()
+		if readErr != nil {
+			break
+		}
+
+		bets = append(bets, BetMessage{
+			Agency:    agencyId,
+			Firstname: betLine[0],
+			Lastname:  betLine[1],
+			Document:  betLine[2],
+			Birthdate: betLine[3],
+			Number:    betLine[4],
+		})
+	}
+
+	return bets
 }
