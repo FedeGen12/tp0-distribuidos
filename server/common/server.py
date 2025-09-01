@@ -1,19 +1,16 @@
 import signal
-import socket
 import logging
 
 from common.client_socket import ClientSocket
-
 from common.utils import store_bets
+from common.server_socker import ServerSocket
 
 
 class Server:
     def __init__(self, port, listen_backlog):
         # Initialize server socket
         self._running = True
-        self._server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self._server_socket.bind(('', port))
-        self._server_socket.listen(listen_backlog)
+        self._server_socket = ServerSocket.setup_listener('', port, listen_backlog)
 
         def sigterm_handler(_signum, _stacktrace):
             logging.info("action: shutdown | result: in_progress | msg: SIGTERM received")
@@ -65,6 +62,6 @@ class Server:
 
         # Connection arrived
         logging.info('action: accept_connections | result: in_progress')
-        c, addr = self._server_socket.accept()
+        client_socket, addr = self._server_socket.accept()
         logging.info(f'action: accept_connections | result: success | ip: {addr[0]}')
-        return ClientSocket(c)
+        return client_socket
