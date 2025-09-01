@@ -85,6 +85,8 @@ func (c *Client) sendBet() {
 		Number:    os.Getenv("NUMERO"),
 	}
 
+	log.Infof("data: %v", msg)
+
 	err := c.socket.Send(msg)
 	if err != nil {
 		log.Errorf("action: apuesta_enviada | result: fail | error: %v", err)
