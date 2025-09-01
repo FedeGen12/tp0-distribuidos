@@ -92,7 +92,7 @@ func (c *Client) sendBet() {
 		log.Errorf("action: apuesta_enviada | result: fail | error: %v", err)
 		return
 	}
-	log.Infof("action: apuesta_enviada | result: success | dni: %v | numero: %v", c.config.ID, 4)
+	log.Infof("action: apuesta_enviada | result: success | dni: %v | numero: %v", msg.Document, msg.Number)
 }
 
 func (c *Client) sigtermHandler() {
