@@ -14,6 +14,7 @@ class Server:
         self._server_socket = ServerSocket.setup_listener('', port, listen_backlog)
         self._lock_bets_file = Lock()
         self._notify_barrier = Barrier(amount_clients)
+        self.agencies = []
 
         def sigterm_handler(_signum, _stacktrace):
             logging.info("action: shutdown | result: in_progress | msg: SIGTERM received")
@@ -30,20 +31,11 @@ class Server:
         communication with a client. After client with communucation
         finishes, servers starts to accept new connections again
         """
-        agencies = []
 
-        while self._running and len(agencies) < self._amount_clients:
+        while self._running and len(self.agencies) < self._amount_clients:
             try:
                 client = self.__accept_new_connection()
-
-                agency = Process(
-                    name=str(client.id),
-                    target=self.__handle_client_connection,
-                    args=(client, self._lock_bets_file, self._notify_barrier),
-                )
-
-                agencies.append((agency, client))
-                agency.start()
+                self.__start_agency_process(client)
 
             except OSError:
                 # si se cerró el socket desde sigterm_handler → salir del loop
@@ -51,7 +43,7 @@ class Server:
 
         self._server_socket.close()
 
-        for agency, agency_socket in agencies:
+        for agency, agency_socket in self.agencies:
             agency.join()
             agency_socket.close()
 
@@ -88,3 +80,13 @@ class Server:
         client, addr = self._server_socket.accept()
         logging.info(f'action: accept_connections | result: success | ip: {addr[0]}')
         return client
+
+    def __start_agency_process(self, client):
+        agency = Process(
+            name=str(client.id),
+            target=self.__handle_client_connection,
+            args=(client, self._lock_bets_file, self._notify_barrier),
+        )
+
+        self.agencies.append((agency, client))
+        agency.start()
