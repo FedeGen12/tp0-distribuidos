@@ -6,6 +6,10 @@ AMOUNT_BATCHES_SIZE_BYTES = 4
 BATCH_SIZE_BYTES = 4
 SEPARATOR = ","
 SEPARATOR_BETS = ";"
+TYPE_MESSAGE_SIZE_BYTES = 1
+
+BATCH_MESSAGE = 0
+NOTIFY_MESSAGE = 1
 
 class ClientSocket:
     def __init__(self, client_socket: socket.socket):
@@ -23,17 +27,24 @@ class ClientSocket:
         return bytes(bytes_received)
 
     def recv(self):
-        amount_batches = int.from_bytes(self._recv_all(AMOUNT_BATCHES_SIZE_BYTES), "big")
-        bets = []
+        type_message = int.from_bytes(self._recv_all(TYPE_MESSAGE_SIZE_BYTES), "big")
 
-        for _ in range(amount_batches):
-            batch_size = int.from_bytes(self._recv_all(BATCH_SIZE_BYTES), "big")
-            batch_bytes = self._recv_all(batch_size)
-            for bet_bytes in batch_bytes.split(SEPARATOR_BETS.encode()):
-                bet = Bet(*bet_bytes.decode().split(SEPARATOR))
-                bets.append(bet)
+        if type_message == BATCH_MESSAGE:
+            amount_batches = int.from_bytes(self._recv_all(AMOUNT_BATCHES_SIZE_BYTES), "big")
+            bets = []
 
-        return bets
+            for _ in range(amount_batches):
+                batch_size = int.from_bytes(self._recv_all(BATCH_SIZE_BYTES), "big")
+                batch_bytes = self._recv_all(batch_size)
+                for bet_bytes in batch_bytes.split(SEPARATOR_BETS.encode()):
+                    bet = Bet(*bet_bytes.decode().split(SEPARATOR))
+                    bets.append(bet)
+
+            return bets
+        elif type_message == NOTIFY_MESSAGE:
+            return None
+
+        raise ValueError(f"invalid type of message {type_message}")
 
     def close(self):
         self._socket.close()
