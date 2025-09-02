@@ -6,13 +6,14 @@ from common.utils import store_bets, has_won, load_bets
 from common.server_socker import ServerSocket
 
 
-def obtain_winners():
-    agency_winners = {}
-    for bet in load_bets():
-        if bet.agency not in agency_winners:
-            agency_winners[bet.agency] = []
-        if has_won(bet):
-            agency_winners[bet.agency].append(int(bet.document))
+def obtain_agency_winners(agency_id, lock_bets_file):
+    agency_winners = []
+
+    with lock_bets_file:
+        for bet in load_bets():
+            if has_won(bet) and bet.agency == agency_id:
+                agency_winners.append(int(bet.document))
+
     return agency_winners
 
 class Server:
@@ -58,13 +59,12 @@ class Server:
                 break
 
         self._server_socket.close()
-        self._get_winners(agencies)
 
         for agency, agency_socket in agencies:
             agency.join()
             agency_socket.close()
 
-    def __handle_client_connection(self, client_sock, lock_bets_file):
+    def __handle_client_connection(self, client_sock, client_id, lock_bets_file):
         """
         Read message from a specific client socket and closes the socket
 
@@ -81,16 +81,14 @@ class Server:
 
             elif type_message == NOTIFY_MESSAGE:
                 logging.info(f"action: notificacion_recibida | result: success")
+                self._get_winners(client_sock, client_id, lock_bets_file)
                 break
 
-    def _get_winners(self, agencies):
+    def _get_winners(self, agency_socket, agency_id, lock_bets_file):
         if self._running:
             logging.info("action: sorteo | result: success")
-
-            agency_winners = obtain_winners()
-
-            for agency, agency_socket in agencies.items():
-                agency_socket.send_winners(agency_winners[agency])
+            agency_winners = obtain_agency_winners(agency_id, lock_bets_file)
+            agency_socket.send_winners(agency_winners)
 
     def __accept_new_connection(self):
         """
