@@ -8,6 +8,8 @@ SEPARATOR = ","
 SEPARATOR_BETS = ";"
 TYPE_MESSAGE_SIZE_BYTES = 1
 CLIENT_ID_SIZE_BYTES = 1
+AMOUNT_WINNERS_SIZE_BYTES = 4
+DOCUMENT_SIZE_BYTES = 4
 
 BATCH_MESSAGE = 0
 NOTIFY_MESSAGE = 1
@@ -27,6 +29,15 @@ class ClientSocket:
             bytes_received.extend(bytes_read)
 
         return bytes(bytes_received)
+
+    def _send_all(self, bytes_to_send: bytes):
+        total_bytes_sent = 0
+
+        while total_bytes_sent < len(bytes_to_send):
+            bytes_sent = self._socket.send(bytes_to_send[total_bytes_sent:], socket.MSG_WAITALL)
+            if not bytes_sent:
+                raise OSError("failed to sent data")
+            total_bytes_sent += bytes_sent
 
     def _recv_batches(self):
         amount_batches = int.from_bytes(self._recv_all(AMOUNT_BATCHES_SIZE_BYTES), "big")
@@ -55,6 +66,14 @@ class ClientSocket:
             return type_message, self._recv_client_id()
 
         raise ValueError(f"invalid type of message {type_message}")
+
+    def send_winners(self, winners):
+        amount_winners_bytes = len(winners).to_bytes(AMOUNT_WINNERS_SIZE_BYTES, "big")
+        self._send_all(amount_winners_bytes)
+
+        for document in winners:
+            document_bytes = document.to_bytes(DOCUMENT_SIZE_BYTES, "big")
+            self._send_all(document_bytes)
 
     def close(self):
         self._socket.close()

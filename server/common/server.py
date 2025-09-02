@@ -2,9 +2,17 @@ import signal
 import logging
 
 from common.client_socket import ClientSocket, BATCH_MESSAGE, NOTIFY_MESSAGE
-from common.utils import store_bets
+from common.utils import store_bets, has_won, load_bets
 from common.server_socker import ServerSocket
 
+
+def obtain_winners():
+    agency_winners = {}
+    for bet in load_bets():
+        if has_won(bet):
+            agency_winners[bet.agency] = agency_winners.get(bet.agency, [])
+            agency_winners[bet.agency].append(int(bet.document))
+    return agency_winners
 
 class Server:
     def __init__(self, port, listen_backlog, amount_clients):
@@ -38,6 +46,18 @@ class Server:
             except OSError:
                 # si se cerró el socket desde sigterm_handler → salir del loop
                 break
+
+        if self._running:
+            self._server_socket.close()
+            logging.info("action: sorteo | result: success")
+
+            agency_winners = obtain_winners()
+
+            for agency, agency_socket in agencies.items():
+                agency_socket.send_winners(agency_winners[agency])
+
+        for agency_socket in agencies.values():
+            agency_socket.close()
 
     def __handle_client_connection(self, client_sock):
         """
