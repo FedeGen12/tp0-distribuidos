@@ -4,6 +4,7 @@ import (
 	"encoding/csv"
 	"os"
 	"os/signal"
+	"strconv"
 	"syscall"
 
 	"github.com/op/go-logging"
@@ -73,6 +74,8 @@ func (c *Client) StartClientLoop(agencyFilePath string) {
 			}
 		}(c.socket)
 
+		c.sendClientId(c.config.ID)
+
 		bets := parseBets(c.config.ID, agencyFilePath)
 		if bets == nil {
 			return
@@ -115,6 +118,19 @@ func (c *Client) sendNotifyMessage() {
 		return
 	}
 	log.Infof("action: notify_message | result: success | client_id: %v", c.config.ID)
+}
+
+func (c *Client) sendClientId(clientId string) {
+	parsedClientId, parseErr := strconv.Atoi(clientId)
+	if parseErr != nil {
+		log.Errorf("action: parse_id | result: fail | client_id: %v | error: %v", clientId, parseErr)
+	}
+
+	err := c.socket.SendClientId(parsedClientId)
+	if err != nil {
+		log.Errorf("action: send_id | result: fail | client_id: %v | error: %v", clientId, err)
+	}
+	log.Infof("action: send_id | result: success | client_id: %v", clientId)
 }
 
 func parseBets(agencyId string, agencyFilePath string) []BetMessage {

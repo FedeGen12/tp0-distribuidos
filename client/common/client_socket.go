@@ -16,7 +16,8 @@ const SeparatorBets = ";"
 
 const (
 	BatchMessage  = 0
-	NotifyMessage = 0
+	NotifyMessage = 1
+	IdMessage     = 2
 )
 
 type ClientSocket struct {
@@ -95,11 +96,31 @@ func (s *ClientSocket) SendNotifyMessage() error {
 
 	_, writeErr := writer.Write([]byte{NotifyMessage})
 	if writeErr != nil {
-		return nil
+		return writeErr
 	}
 
 	if err := writer.Flush(); err != nil {
 		return fmt.Errorf("failed to send notify message : %v", err)
+	}
+
+	return nil
+}
+
+func (s *ClientSocket) SendClientId(clientId int) error {
+	writer := bufio.NewWriter(s.conn)
+
+	_, writeErr := writer.Write([]byte{IdMessage})
+	if writeErr != nil {
+		return writeErr
+	}
+
+	_, writeErr2 := writer.Write([]byte{byte(clientId)})
+	if writeErr2 != nil {
+		return writeErr2
+	}
+
+	if err := writer.Flush(); err != nil {
+		return fmt.Errorf("failed to send client ID: %v", err)
 	}
 
 	return nil
