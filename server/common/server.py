@@ -9,8 +9,9 @@ from common.server_socker import ServerSocket
 def obtain_winners():
     agency_winners = {}
     for bet in load_bets():
+        if bet.agency not in agency_winners:
+            agency_winners[bet.agency] = []
         if has_won(bet):
-            agency_winners[bet.agency] = agency_winners.get(bet.agency, [])
             agency_winners[bet.agency].append(int(bet.document))
     return agency_winners
 
