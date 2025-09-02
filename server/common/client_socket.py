@@ -26,21 +26,23 @@ class ClientSocket:
 
         return bytes(bytes_received)
 
+    def _recv_batches(self):
+        amount_batches = int.from_bytes(self._recv_all(AMOUNT_BATCHES_SIZE_BYTES), "big")
+        bets = []
+
+        for _ in range(amount_batches):
+            batch_size = int.from_bytes(self._recv_all(BATCH_SIZE_BYTES), "big")
+            batch_bytes = self._recv_all(batch_size)
+            for bet_bytes in batch_bytes.split(SEPARATOR_BETS.encode()):
+                bet = Bet(*bet_bytes.decode().split(SEPARATOR))
+                bets.append(bet)
+        return bets
+
     def recv(self):
         type_message = int.from_bytes(self._recv_all(TYPE_MESSAGE_SIZE_BYTES), "big")
 
         if type_message == BATCH_MESSAGE:
-            amount_batches = int.from_bytes(self._recv_all(AMOUNT_BATCHES_SIZE_BYTES), "big")
-            bets = []
-
-            for _ in range(amount_batches):
-                batch_size = int.from_bytes(self._recv_all(BATCH_SIZE_BYTES), "big")
-                batch_bytes = self._recv_all(batch_size)
-                for bet_bytes in batch_bytes.split(SEPARATOR_BETS.encode()):
-                    bet = Bet(*bet_bytes.decode().split(SEPARATOR))
-                    bets.append(bet)
-
-            return bets
+            return self._recv_batches()
         elif type_message == NOTIFY_MESSAGE:
             return None
 
