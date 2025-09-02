@@ -49,7 +49,7 @@ class Server:
                 break
 
         self._server_socket.close()
-        self.get_winners(agencies)
+        self._get_winners(agencies)
 
         for agency_socket in agencies.values():
             agency_socket.close()
@@ -72,7 +72,7 @@ class Server:
                 logging.info(f"action: notificacion_recibida | result: success")
                 break
 
-    def get_winners(self, agencies):
+    def _get_winners(self, agencies):
         if self._running:
             logging.info("action: sorteo | result: success")
 
