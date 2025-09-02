@@ -8,6 +8,7 @@ import (
 	"net"
 )
 
+const AmountBatchesSizeBytes = 4
 const BatchSizeBytes = 4
 const MaxBatchSizeBytes = 8192
 const SeparatorBetsSize = 1 // Es por el caracter de separacion entre apuestas en el batch
@@ -38,7 +39,7 @@ func (s *ClientSocket) Send(bets []BetMessage, batchMaxSize int) error {
 
 	betBatches := createBetBatches(bets, batchMaxSize)
 
-	amountBatchesBytes := make([]byte, BatchSizeBytes)
+	amountBatchesBytes := make([]byte, AmountBatchesSizeBytes)
 	binary.BigEndian.PutUint32(amountBatchesBytes, uint32(len(betBatches)))
 	_, writeErr := socketWriter.Write(amountBatchesBytes)
 	if writeErr != nil {
