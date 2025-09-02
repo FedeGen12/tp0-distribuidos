@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"encoding/binary"
 	"fmt"
+	"io"
 	"net"
 )
 
@@ -13,6 +14,8 @@ const BatchSizeBytes = 4
 const MaxBatchSizeBytes = 8192
 const SeparatorBetsSize = 1 // Es por el caracter de separacion entre apuestas en el batch
 const SeparatorBets = ";"
+const AmountWinnersSizeBytes = 4
+const DocumentSizeBytes = 4
 
 const (
 	BatchMessage  = 0
@@ -124,6 +127,32 @@ func (s *ClientSocket) SendClientId(clientId int) error {
 	}
 
 	return nil
+}
+
+func (s *ClientSocket) RecvWinners() ([]int, error) {
+	amountWinnersBytes := make([]byte, AmountWinnersSizeBytes)
+
+	_, readErr := io.ReadFull(s.conn, amountWinnersBytes)
+	if readErr != nil {
+		return nil, fmt.Errorf("failed to receive winners amount: %v", readErr)
+	}
+
+	amountWinners := binary.BigEndian.Uint32(amountWinnersBytes)
+
+	winnersBytes := make([]byte, amountWinners*DocumentSizeBytes)
+
+	_, readErr2 := io.ReadFull(s.conn, winnersBytes)
+	if readErr2 != nil {
+		return nil, fmt.Errorf("failed to receive winners: %v", readErr2)
+	}
+
+	winnersDocuments := make([]int, 0, amountWinners)
+	for i := 0; i < len(winnersBytes); i += DocumentSizeBytes {
+		document := binary.BigEndian.Uint32(winnersBytes[i : i+DocumentSizeBytes])
+		winnersDocuments = append(winnersDocuments, int(document))
+	}
+
+	return winnersDocuments, nil
 }
 
 func createBetBatches(bets []BetMessage, maxAmount int) [][]BetMessage {

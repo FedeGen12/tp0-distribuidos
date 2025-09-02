@@ -83,6 +83,7 @@ func (c *Client) StartClientLoop(agencyFilePath string) {
 
 		c.sendBets(bets)
 		c.sendNotifyMessage()
+		c.recvWinners()
 	}
 }
 
@@ -131,6 +132,15 @@ func (c *Client) sendClientId(clientId string) {
 		log.Errorf("action: send_id | result: fail | client_id: %v | error: %v", clientId, err)
 	}
 	log.Infof("action: send_id | result: success | client_id: %v", clientId)
+}
+
+func (c *Client) recvWinners() {
+	winners, err := c.socket.RecvWinners()
+	if err != nil {
+		log.Errorf("action: consulta_ganadores | result: fail | error: %v", err)
+		return
+	}
+	log.Infof("action: consulta_ganadores | result: success | cant_ganadores: %v", len(winners))
 }
 
 func parseBets(agencyId string, agencyFilePath string) []BetMessage {
