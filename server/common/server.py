@@ -1,5 +1,6 @@
 import signal
 import logging
+from multiprocessing import Process
 
 from common.client_socket import ClientSocket, BATCH_MESSAGE, NOTIFY_MESSAGE
 from common.utils import store_bets, has_won, load_bets
@@ -37,13 +38,22 @@ class Server:
         communication with a client. After client with communucation
         finishes, servers starts to accept new connections again
         """
-        agencies = {}
+        agencies = []
 
         while self._running and len(agencies) < self._amount_clients:
             try:
                 client_sock, client_id = self.__accept_new_connection()
                 self.__handle_client_connection(client_sock)
-                agencies[client_id] = client_sock
+
+                agency = Process(
+                    name=str(client_id),
+                    target=self.__handle_client_connection,
+                    args=client_sock,
+                )
+
+                agencies.append((agency, client_sock))
+                agency.start()
+
             except OSError:
                 # si se cerró el socket desde sigterm_handler → salir del loop
                 break
@@ -51,7 +61,8 @@ class Server:
         self._server_socket.close()
         self._get_winners(agencies)
 
-        for agency_socket in agencies.values():
+        for agency, agency_socket in agencies:
+            agency.join()
             agency_socket.close()
 
     def __handle_client_connection(self, client_sock):
