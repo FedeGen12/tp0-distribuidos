@@ -79,6 +79,7 @@ func (c *Client) StartClientLoop(agencyFilePath string) {
 		}
 
 		c.sendBets(bets)
+		c.sendNotifyMessage()
 	}
 }
 
@@ -105,6 +106,15 @@ func (c *Client) sigtermHandler() {
 		}
 	}
 	return
+}
+
+func (c *Client) sendNotifyMessage() {
+	err := c.socket.SendNotifyMessage()
+	if err != nil {
+		log.Errorf("action: notify_message | result: fail | client_id: %v | error: %v", c.config.ID, err)
+		return
+	}
+	log.Infof("action: notify_message | result: success | client_id: %v", c.config.ID)
 }
 
 func parseBets(agencyId string, agencyFilePath string) []BetMessage {
