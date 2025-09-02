@@ -14,6 +14,10 @@ const MaxBatchSizeBytes = 8192
 const SeparatorBetsSize = 1 // Es por el caracter de separacion entre apuestas en el batch
 const SeparatorBets = ";"
 
+const (
+	BatchMessage = 0
+)
+
 type ClientSocket struct {
 	conn net.Conn
 }
@@ -38,6 +42,11 @@ func (s *ClientSocket) Send(bets []BetMessage, batchMaxSize int) error {
 	socketWriter := bufio.NewWriter(s.conn)
 
 	betBatches := createBetBatches(bets, batchMaxSize)
+
+	_, typeMsgErr := socketWriter.Write([]byte{BatchMessage})
+	if typeMsgErr != nil {
+		return typeMsgErr
+	}
 
 	amountBatchesBytes := make([]byte, AmountBatchesSizeBytes)
 	binary.BigEndian.PutUint32(amountBatchesBytes, uint32(len(betBatches)))

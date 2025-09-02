@@ -83,7 +83,7 @@ func (c *Client) StartClientLoop(agencyFilePath string) {
 }
 
 func (c *Client) sendBets(bets []BetMessage) {
-	err := c.socket.Send(bets, c.config.BatchMaxAmount) // Envio solo la primera apuesta por ahora
+	err := c.socket.Send(bets, c.config.BatchMaxAmount)
 	if err != nil {
 		log.Errorf("action: batch_enviado | result: fail | client_id: %v | error: %v", c.config.ID, err)
 		return
