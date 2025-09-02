@@ -1,6 +1,5 @@
-import socket
-
 from common.utils import Bet
+from common.server_utils import recv_all_by_socket, send_all_by_socket
 
 AMOUNT_BATCHES_SIZE_BYTES = 4
 BATCH_SIZE_BYTES = 4
@@ -21,47 +20,27 @@ class Client:
         self.id = client_id
 
 class ClientSocket:
-    def __init__(self, client_socket: socket.socket):
+    def __init__(self, client_socket):
         self._socket = client_socket
 
-    def _recv_all(self, bytes_to_recv: int):
-        bytes_received = bytearray()
-
-        while len(bytes_received) < bytes_to_recv:
-            bytes_read = self._socket.recv(bytes_to_recv - len(bytes_received), socket.MSG_WAITALL)
-            if not bytes_read:
-                raise OSError("failed to receive data")
-            bytes_received.extend(bytes_read)
-
-        return bytes(bytes_received)
-
-    def _send_all(self, bytes_to_send: bytes):
-        total_bytes_sent = 0
-
-        while total_bytes_sent < len(bytes_to_send):
-            bytes_sent = self._socket.send(bytes_to_send[total_bytes_sent:], socket.MSG_WAITALL)
-            if not bytes_sent:
-                raise OSError("failed to sent data")
-            total_bytes_sent += bytes_sent
-
     def _recv_batches(self):
-        amount_batches = int.from_bytes(self._recv_all(AMOUNT_BATCHES_SIZE_BYTES), "big")
+        amount_batches = int.from_bytes(recv_all_by_socket(self._socket, AMOUNT_BATCHES_SIZE_BYTES), "big")
         bets = []
 
         for _ in range(amount_batches):
-            batch_size = int.from_bytes(self._recv_all(BATCH_SIZE_BYTES), "big")
-            batch_bytes = self._recv_all(batch_size)
+            batch_size = int.from_bytes(recv_all_by_socket(self._socket, BATCH_SIZE_BYTES), "big")
+            batch_bytes = recv_all_by_socket(self._socket, batch_size)
             for bet_bytes in batch_bytes.split(SEPARATOR_BETS.encode()):
                 bet = Bet(*bet_bytes.decode().split(SEPARATOR))
                 bets.append(bet)
         return bets
 
     def _recv_client_id(self):
-        client_id = int.from_bytes(self._recv_all(CLIENT_ID_SIZE_BYTES), "big")
+        client_id = int.from_bytes(recv_all_by_socket(self._socket, CLIENT_ID_SIZE_BYTES), "big")
         return client_id
 
     def recv(self):
-        type_message = int.from_bytes(self._recv_all(TYPE_MESSAGE_SIZE_BYTES), "big")
+        type_message = int.from_bytes(recv_all_by_socket(self._socket, TYPE_MESSAGE_SIZE_BYTES), "big")
 
         if type_message == BATCH_MESSAGE:
             return type_message, self._recv_batches()
@@ -74,11 +53,11 @@ class ClientSocket:
 
     def send_winners(self, winners):
         amount_winners_bytes = len(winners).to_bytes(AMOUNT_WINNERS_SIZE_BYTES, "big")
-        self._send_all(amount_winners_bytes)
+        send_all_by_socket(self._socket, amount_winners_bytes)
 
         for document in winners:
             document_bytes = document.to_bytes(DOCUMENT_SIZE_BYTES, "big")
-            self._send_all(document_bytes)
+            send_all_by_socket(self._socket, document_bytes)
 
     def close(self):
         self._socket.close()
