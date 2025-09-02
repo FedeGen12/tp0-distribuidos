@@ -14,7 +14,11 @@ class ServerSocket:
 
     def accept(self):
         skt, addr = self._socket.accept()
-        return ClientSocket(skt), addr
+        client_socket = ClientSocket(skt)
+        _, client_id_bytes = client_socket.recv()
+
+        client_id = int.from_bytes(client_id_bytes, "big")
+        return client_socket, client_id, addr
 
     def close(self):
         self._socket.close()

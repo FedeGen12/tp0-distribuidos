@@ -7,9 +7,11 @@ BATCH_SIZE_BYTES = 4
 SEPARATOR = ","
 SEPARATOR_BETS = ";"
 TYPE_MESSAGE_SIZE_BYTES = 1
+CLIENT_ID_SIZE_BYTES = 1
 
 BATCH_MESSAGE = 0
 NOTIFY_MESSAGE = 1
+ID_MESSAGE = 2
 
 class ClientSocket:
     def __init__(self, client_socket: socket.socket):
@@ -38,6 +40,10 @@ class ClientSocket:
                 bets.append(bet)
         return bets
 
+    def _recv_client_id(self):
+        client_id = int.from_bytes(self._recv_all(CLIENT_ID_SIZE_BYTES), "big")
+        return client_id
+
     def recv(self):
         type_message = int.from_bytes(self._recv_all(TYPE_MESSAGE_SIZE_BYTES), "big")
 
@@ -45,6 +51,8 @@ class ClientSocket:
             return type_message, self._recv_batches()
         elif type_message == NOTIFY_MESSAGE:
             return type_message, None
+        elif type_message == ID_MESSAGE:
+            return type_message, self._recv_client_id()
 
         raise ValueError(f"invalid type of message {type_message}")
 

@@ -10,6 +10,7 @@ class Server:
     def __init__(self, port, listen_backlog):
         # Initialize server socket
         self._running = True
+        self._amount_clients = 5
         self._server_socket = ServerSocket.setup_listener('', port, listen_backlog)
 
         def sigterm_handler(_signum, _stacktrace):
@@ -27,10 +28,12 @@ class Server:
         communication with a client. After client with communucation
         finishes, servers starts to accept new connections again
         """
+        agencies = {}
 
-        while self._running:
+        while self._running and len(agencies) < self._amount_clients:
             try:
-                client_sock = self.__accept_new_connection()
+                client_sock, client_id = self.__accept_new_connection()
+                agencies[client_id] = client_sock
                 self.__handle_client_connection(client_sock)
             except OSError:
                 # si se cerró el socket desde sigterm_handler → salir del loop
@@ -64,6 +67,6 @@ class Server:
 
         # Connection arrived
         logging.info('action: accept_connections | result: in_progress')
-        client_socket, addr = self._server_socket.accept()
+        client_socket, client_id, addr = self._server_socket.accept()
         logging.info(f'action: accept_connections | result: success | ip: {addr[0]}')
-        return client_socket
+        return client_socket, client_id
