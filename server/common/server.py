@@ -49,7 +49,7 @@ class Server:
                 agency = Process(
                     name=str(client_id),
                     target=self.__handle_client_connection,
-                    args=(client_sock, self._lock_bets_file, self._notify_barrier),
+                    args=(client_sock, client_id, self._lock_bets_file, self._notify_barrier),
                 )
 
                 agencies.append((agency, client_sock))
