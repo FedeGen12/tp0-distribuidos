@@ -7,10 +7,10 @@ from common.server_socker import ServerSocket
 
 
 class Server:
-    def __init__(self, port, listen_backlog):
+    def __init__(self, port, listen_backlog, amount_clients):
         # Initialize server socket
         self._running = True
-        self._amount_clients = 5
+        self._amount_clients = amount_clients
         self._server_socket = ServerSocket.setup_listener('', port, listen_backlog)
 
         def sigterm_handler(_signum, _stacktrace):
