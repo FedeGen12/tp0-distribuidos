@@ -1,5 +1,5 @@
 import socket
-from common.client_socket import ClientSocket
+from common.client import ClientSocket, Client
 
 class ServerSocket:
     def __init__(self, skt: socket.socket):
@@ -16,7 +16,7 @@ class ServerSocket:
         skt, addr = self._socket.accept()
         client_socket = ClientSocket(skt)
         _, client_id = client_socket.recv()
-        return client_socket, client_id, addr
+        return Client(client_socket, client_id), addr
 
     def close(self):
         self._socket.close()

@@ -12,9 +12,9 @@ def _obtain_agency_winners(agency_id, lock_bets_file):
     return agency_winners
 
 
-def get_winners(agency_socket, agency_id, lock_bets_file, notify_barrier):
+def get_winners(agency, lock_bets_file, notify_barrier):
     if notify_barrier.wait() == 0:
         logging.info("action: sorteo | result: success")
 
-    agency_winners = _obtain_agency_winners(agency_id, lock_bets_file)
-    agency_socket.send_winners(agency_winners)
+    agency_winners = _obtain_agency_winners(agency.id, lock_bets_file)
+    agency.socket.send_winners(agency_winners)

@@ -15,6 +15,11 @@ BATCH_MESSAGE = 0
 NOTIFY_MESSAGE = 1
 ID_MESSAGE = 2
 
+class Client:
+    def __init__(self, client_socket: "ClientSocket", client_id: int):
+        self.socket = client_socket
+        self.id = client_id
+
 class ClientSocket:
     def __init__(self, client_socket: socket.socket):
         self._socket = client_socket

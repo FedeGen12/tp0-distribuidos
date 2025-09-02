@@ -1,7 +1,7 @@
 import signal
 import logging
 from multiprocessing import Process, Lock, Barrier
-from common.client_socket import ClientSocket, BATCH_MESSAGE, NOTIFY_MESSAGE
+from common.client import BATCH_MESSAGE, NOTIFY_MESSAGE
 from common.utils import store_bets
 from common.server_socker import ServerSocket
 from common.server_utils import get_winners
@@ -34,15 +34,15 @@ class Server:
 
         while self._running and len(agencies) < self._amount_clients:
             try:
-                client_sock, client_id = self.__accept_new_connection()
+                client = self.__accept_new_connection()
 
                 agency = Process(
-                    name=str(client_id),
+                    name=str(client.id),
                     target=self.__handle_client_connection,
-                    args=(client_sock, client_id, self._lock_bets_file, self._notify_barrier),
+                    args=(client, self._lock_bets_file, self._notify_barrier),
                 )
 
-                agencies.append((agency, client_sock))
+                agencies.append((agency, client))
                 agency.start()
 
             except OSError:
@@ -55,7 +55,7 @@ class Server:
             agency.join()
             agency_socket.close()
 
-    def __handle_client_connection(self, client_sock, client_id, lock_bets_file, notify_barrier):
+    def __handle_client_connection(self, client, lock_bets_file, notify_barrier):
         """
         Read message from a specific client socket and closes the socket
 
@@ -63,7 +63,7 @@ class Server:
         client socket will also be closed
         """
         while True:
-            type_message, message = client_sock.recv()
+            type_message, message = client.socket.recv()
 
             if type_message == BATCH_MESSAGE:
                 with lock_bets_file:
@@ -72,7 +72,7 @@ class Server:
 
             elif type_message == NOTIFY_MESSAGE:
                 logging.info(f"action: notificacion_recibida | result: success")
-                get_winners(client_sock, client_id, lock_bets_file, notify_barrier)
+                get_winners(client, lock_bets_file, notify_barrier)
                 break
 
     def __accept_new_connection(self):
@@ -85,6 +85,6 @@ class Server:
 
         # Connection arrived
         logging.info('action: accept_connections | result: in_progress')
-        client_socket, client_id, addr = self._server_socket.accept()
+        client, addr = self._server_socket.accept()
         logging.info(f'action: accept_connections | result: success | ip: {addr[0]}')
-        return client_socket, client_id
+        return client
