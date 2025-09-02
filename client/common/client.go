@@ -1,7 +1,6 @@
 package common
 
 import (
-	"encoding/csv"
 	"os"
 	"os/signal"
 	"strconv"
@@ -76,7 +75,7 @@ func (c *Client) StartClientLoop(agencyFilePath string) {
 
 		c.sendClientId(c.config.ID)
 
-		bets := parseBets(c.config.ID, agencyFilePath)
+		bets := ParseBets(c.config.ID, agencyFilePath)
 		if bets == nil {
 			return
 		}
@@ -141,39 +140,4 @@ func (c *Client) recvWinners() {
 		return
 	}
 	log.Infof("action: consulta_ganadores | result: success | cant_ganadores: %v", len(winners))
-}
-
-func parseBets(agencyId string, agencyFilePath string) []BetMessage {
-	agencyFile, err := os.Open(agencyFilePath)
-	if err != nil {
-		log.Criticalf("action: file_open | result: fail | client_id: %v | error: %v", agencyId, err)
-		return nil
-	}
-	defer func(agencyFile *os.File) {
-		closeErr := agencyFile.Close()
-		if closeErr != nil {
-			log.Criticalf("action: file_close | result: fail | client_id: %v | error: %v", agencyId, closeErr)
-		}
-	}(agencyFile)
-
-	fileReader := csv.NewReader(agencyFile)
-	bets := make([]BetMessage, 0)
-
-	for {
-		betLine, readErr := fileReader.Read()
-		if readErr != nil {
-			break
-		}
-
-		bets = append(bets, BetMessage{
-			Agency:    agencyId,
-			Firstname: betLine[0],
-			Lastname:  betLine[1],
-			Document:  betLine[2],
-			Birthdate: betLine[3],
-			Number:    betLine[4],
-		})
-	}
-
-	return bets
 }
