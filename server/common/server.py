@@ -48,14 +48,8 @@ class Server:
                 # si se cerró el socket desde sigterm_handler → salir del loop
                 break
 
-        if self._running:
-            self._server_socket.close()
-            logging.info("action: sorteo | result: success")
-
-            agency_winners = obtain_winners()
-
-            for agency, agency_socket in agencies.items():
-                agency_socket.send_winners(agency_winners[agency])
+        self._server_socket.close()
+        self.get_winners(agencies)
 
         for agency_socket in agencies.values():
             agency_socket.close()
@@ -77,6 +71,15 @@ class Server:
             elif type_message == NOTIFY_MESSAGE:
                 logging.info(f"action: notificacion_recibida | result: success")
                 break
+
+    def get_winners(self, agencies):
+        if self._running:
+            logging.info("action: sorteo | result: success")
+
+            agency_winners = obtain_winners()
+
+            for agency, agency_socket in agencies.items():
+                agency_socket.send_winners(agency_winners[agency])
 
     def __accept_new_connection(self):
         """
