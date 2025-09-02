@@ -41,8 +41,8 @@ class Server:
         while self._running and len(agencies) < self._amount_clients:
             try:
                 client_sock, client_id = self.__accept_new_connection()
-                agencies[client_id] = client_sock
                 self.__handle_client_connection(client_sock)
+                agencies[client_id] = client_sock
             except OSError:
                 # si se cerró el socket desde sigterm_handler → salir del loop
                 break
