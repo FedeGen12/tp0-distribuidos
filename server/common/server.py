@@ -2,19 +2,9 @@ import signal
 import logging
 from multiprocessing import Process, Lock, Barrier
 from common.client_socket import ClientSocket, BATCH_MESSAGE, NOTIFY_MESSAGE
-from common.utils import store_bets, has_won, load_bets
+from common.utils import store_bets
 from common.server_socker import ServerSocket
-
-
-def obtain_agency_winners(agency_id, lock_bets_file):
-    agency_winners = []
-
-    with lock_bets_file:
-        for bet in load_bets():
-            if has_won(bet) and bet.agency == agency_id:
-                agency_winners.append(int(bet.document))
-
-    return agency_winners
+from common.server_utils import get_winners
 
 class Server:
     def __init__(self, port, listen_backlog, amount_clients):
@@ -82,15 +72,8 @@ class Server:
 
             elif type_message == NOTIFY_MESSAGE:
                 logging.info(f"action: notificacion_recibida | result: success")
-                self._get_winners(client_sock, client_id, lock_bets_file, notify_barrier)
+                get_winners(client_sock, client_id, lock_bets_file, notify_barrier)
                 break
-
-    def _get_winners(self, agency_socket, agency_id, lock_bets_file, notify_barrier):
-        if notify_barrier.wait() == 0:
-            logging.info("action: sorteo | result: success")
-
-        agency_winners = obtain_agency_winners(agency_id, lock_bets_file)
-        agency_socket.send_winners(agency_winners)
 
     def __accept_new_connection(self):
         """
