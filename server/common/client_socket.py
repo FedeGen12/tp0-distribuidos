@@ -2,8 +2,10 @@ import socket
 
 from common.utils import Bet
 
-BET_SIZE = 4
+AMOUNT_BATCHES_SIZE_BYTES = 4
+BATCH_SIZE_BYTES = 4
 SEPARATOR = ","
+SEPARATOR_BETS = ";"
 
 class ClientSocket:
     def __init__(self, client_socket: socket.socket):
@@ -21,11 +23,17 @@ class ClientSocket:
         return bytes(bytes_received)
 
     def recv(self):
-        bet_size = int.from_bytes(self._recv_all(BET_SIZE), "big")
-        bet_bytes = self._recv_all(bet_size)
+        amount_batches = int.from_bytes(self._recv_all(AMOUNT_BATCHES_SIZE_BYTES), "big")
+        bets = []
 
-        bet = Bet(*bet_bytes.decode().split(SEPARATOR))
-        return bet
+        for _ in range(amount_batches):
+            batch_size = int.from_bytes(self._recv_all(BATCH_SIZE_BYTES), "big")
+            batch_bytes = self._recv_all(batch_size)
+            for bet_bytes in batch_bytes.split(SEPARATOR_BETS.encode()):
+                bet = Bet(*bet_bytes.decode().split(SEPARATOR))
+                bets.append(bet)
+
+        return bets
 
     def close(self):
         self._socket.close()
