@@ -1,7 +1,7 @@
 import signal
 import logging
 
-from common.client_socket import ClientSocket
+from common.client_socket import ClientSocket, BATCH_MESSAGE, NOTIFY_MESSAGE
 from common.utils import store_bets
 from common.server_socker import ServerSocket
 
@@ -43,14 +43,16 @@ class Server:
         If a problem arises in the communication with the client, the
         client socket will also be closed
         """
-        try:
-            bets = client_sock.recv()
-            store_bets(bets)
-            logging.info(f"action: apuesta_recibida | result: success | cantidad: {len(bets)}")
-        except OSError as e:
-            logging.error(f"action: apuesta_recibida | result: fail | error: {e}")
-        finally:
-            client_sock.close()
+        while True:
+            type_message, message = client_sock.recv()
+
+            if type_message == BATCH_MESSAGE:
+                store_bets(message)
+                logging.info(f"action: apuesta_recibida | result: success | cantidad: {len(message)}")
+
+            elif type_message == NOTIFY_MESSAGE:
+                logging.info(f"action: notificacion_recibida | result: success")
+                break
 
     def __accept_new_connection(self):
         """

@@ -42,9 +42,9 @@ class ClientSocket:
         type_message = int.from_bytes(self._recv_all(TYPE_MESSAGE_SIZE_BYTES), "big")
 
         if type_message == BATCH_MESSAGE:
-            return self._recv_batches()
+            return type_message, self._recv_batches()
         elif type_message == NOTIFY_MESSAGE:
-            return None
+            return type_message, None
 
         raise ValueError(f"invalid type of message {type_message}")
 
