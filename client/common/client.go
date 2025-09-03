@@ -28,10 +28,7 @@ type Client struct {
 // NewClient Initializes a new client receiving the configuration
 // as a parameter
 func NewClient(config ClientConfig) *Client {
-	client := &Client{
-		config: config,
-	}
-	return client
+	return &Client{config: config}
 }
 
 // CreateClientSocket Initializes client socket. In case of
@@ -40,11 +37,8 @@ func NewClient(config ClientConfig) *Client {
 func (c *Client) createClientSocket() error {
 	socket, err := BindCLientSocket(c.config.ServerAddress)
 	if err != nil {
-		log.Criticalf(
-			"action: connect | result: fail | client_id: %v | error: %v",
-			c.config.ID,
-			err,
-		)
+		log.Criticalf("action: connect | result: fail | client_id: %v | error: %v", c.config.ID, err)
+		return err
 	}
 	c.socket = socket
 	return nil
@@ -93,8 +87,18 @@ func (c *Client) StartClientLoop(agencyFilePath string) {
 			return
 		}
 
-		c.sendNotifyMessage()
-		c.recvWinners()
+		if err = c.socket.SendNotifyMessage(); err != nil {
+			log.Errorf("action: notify_message | result: fail | client_id: %v | error: %v", c.config.ID, err)
+			return
+		}
+		log.Infof("action: notify_message | result: success | client_id: %v", c.config.ID)
+
+		winners, err := c.socket.RecvWinners()
+		if err != nil {
+			log.Errorf("action: consulta_ganadores | result: fail | error: %v", err)
+			return
+		}
+		log.Infof("action: consulta_ganadores | result: success | cant_ganadores: %v", len(winners))
 	}
 }
 
@@ -107,7 +111,7 @@ func (c *Client) sendBets(agencyId string, agencyFile *os.File) error {
 		betLine, readErr := fileReader.Read()
 		if readErr != nil {
 			if len(currentBatch) > 0 {
-				c.sendBatch(currentBatch)
+				return c.socket.Send(currentBatch)
 			}
 			break
 		}
@@ -126,9 +130,10 @@ func (c *Client) sendBets(agencyId string, agencyFile *os.File) error {
 		// Me fijo que el batch no supere la cantidad maxima de apuestas
 		// y que el tamaño del batch no supere el tamaño maximo permitido de 8kb
 		// Me fijo si entra con o sin el separador, porque puede ser la apuesta final del batch
-		if len(currentBatch) >= c.config.BatchMaxAmount ||
-			(currentBatchSize+betSize+SeparatorBetsSize > MaxBatchSizeBytes && currentBatchSize+betSize > MaxBatchSizeBytes) {
-			c.sendBatch(currentBatch)
+		if c.shouldSendBatch(len(currentBatch), currentBatchSize, betSize) {
+			if err := c.socket.Send(currentBatch); err != nil {
+				return err
+			}
 			currentBatch = make([]BetMessage, 0)
 			currentBatchSize = 0
 		}
@@ -138,15 +143,6 @@ func (c *Client) sendBets(agencyId string, agencyFile *os.File) error {
 	}
 
 	return nil
-}
-
-func (c *Client) sendBatch(batch []BetMessage) {
-	err := c.socket.Send(batch)
-	if err != nil {
-		log.Errorf("action: batch_enviado | result: fail | client_id: %v | error: %v", c.config.ID, err)
-		return
-	}
-	log.Infof("action: batch_enviado | result: success | client_id: %v", c.config.ID)
 }
 
 func (c *Client) sigtermHandler() {
@@ -165,33 +161,21 @@ func (c *Client) sigtermHandler() {
 	return
 }
 
-func (c *Client) sendNotifyMessage() {
-	err := c.socket.SendNotifyMessage()
-	if err != nil {
-		log.Errorf("action: notify_message | result: fail | client_id: %v | error: %v", c.config.ID, err)
-		return
-	}
-	log.Infof("action: notify_message | result: success | client_id: %v", c.config.ID)
-}
-
 func (c *Client) sendClientId(clientId string) {
 	parsedClientId, parseErr := strconv.Atoi(clientId)
 	if parseErr != nil {
 		log.Errorf("action: parse_id | result: fail | client_id: %v | error: %v", clientId, parseErr)
+		return
 	}
 
-	err := c.socket.SendClientId(parsedClientId)
-	if err != nil {
+	if err := c.socket.SendClientId(parsedClientId); err != nil {
 		log.Errorf("action: send_id | result: fail | client_id: %v | error: %v", clientId, err)
+		return
 	}
 	log.Infof("action: send_id | result: success | client_id: %v", clientId)
 }
 
-func (c *Client) recvWinners() {
-	winners, err := c.socket.RecvWinners()
-	if err != nil {
-		log.Errorf("action: consulta_ganadores | result: fail | error: %v", err)
-		return
-	}
-	log.Infof("action: consulta_ganadores | result: success | cant_ganadores: %v", len(winners))
+func (c *Client) shouldSendBatch(batchLen, batchSize, betSize int) bool {
+	return batchLen >= c.config.BatchMaxAmount ||
+		(batchSize+betSize+SeparatorBetsSize > MaxBatchSizeBytes && batchSize+betSize > MaxBatchSizeBytes)
 }
