@@ -12,7 +12,13 @@ class Server:
         def sigterm_handler(_signum, _stacktrace):
             logging.info("action: shutdown | result: in_progress | msg: SIGTERM received")
             self._running = False
-            self._server_socket.close()
+            try:
+                self._server_socket.close()
+                logging.info("action: close_server_socket | result: success")
+                logging.info("action: shutdown | result: success")
+            except OSError as e:
+                logging.error(f"action: close_server_socket | result: fail | error: {e}")
+                logging.error(f"action: shutdown | result: fail")
 
         signal.signal(signal.SIGTERM, sigterm_handler)
 
@@ -51,9 +57,14 @@ class Server:
             # TODO: Modify the send to avoid short-writes
             client_sock.send("{}\n".format(msg).encode('utf-8'))
         except OSError as e:
-            logging.error("action: receive_message | result: fail | error: {e}")
+            logging.error(f"action: receive_message | result: fail | error: {e}")
         finally:
-            client_sock.close()
+            try:
+                client_sock.close()
+                logging.info("action: close_client_socket | result: success")
+            except OSError as e:
+                logging.error(f"action: close_client_socket | result: fail | error: {e}")
+
 
     def __accept_new_connection(self):
         """
