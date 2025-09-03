@@ -76,19 +76,72 @@ func (c *Client) StartClientLoop(agencyFilePath string) {
 
 		c.sendClientId(c.config.ID)
 
-		bets := parseBets(c.config.ID, agencyFilePath)
-		if bets == nil {
+		agencyFile, err := os.Open(agencyFilePath)
+		if err != nil {
+			log.Criticalf("action: file_open | result: fail | client_id: %v | error: %v", c.config.ID, err)
+			return
+		}
+		defer func(agencyFile *os.File) {
+			closeErr := agencyFile.Close()
+			if closeErr != nil {
+				log.Criticalf("action: file_close | result: fail | client_id: %v | error: %v", c.config.ID, closeErr)
+			}
+		}(agencyFile)
+
+		err = c.sendBets(c.config.ID, agencyFile)
+		if err != nil {
 			return
 		}
 
-		c.sendBets(bets)
 		c.sendNotifyMessage()
 		c.recvWinners()
 	}
 }
 
-func (c *Client) sendBets(bets []BetMessage) {
-	err := c.socket.Send(bets, c.config.BatchMaxAmount)
+func (c *Client) sendBets(agencyId string, agencyFile *os.File) error {
+	fileReader := csv.NewReader(agencyFile)
+	currentBatch := make([]BetMessage, 0)
+	var currentBatchSize int
+
+	for {
+		betLine, readErr := fileReader.Read()
+		if readErr != nil {
+			if len(currentBatch) > 0 {
+				c.sendBatch(currentBatch)
+			}
+			break
+		}
+
+		currentBet := BetMessage{
+			Agency:    agencyId,
+			Firstname: betLine[0],
+			Lastname:  betLine[1],
+			Document:  betLine[2],
+			Birthdate: betLine[3],
+			Number:    betLine[4],
+		}
+
+		betSize := len(currentBet.Encode())
+
+		// Me fijo que el batch no supere la cantidad maxima de apuestas
+		// y que el tamaño del batch no supere el tamaño maximo permitido de 8kb
+		// Me fijo si entra con o sin el separador, porque puede ser la apuesta final del batch
+		if len(currentBatch) >= c.config.BatchMaxAmount ||
+			(currentBatchSize+betSize+SeparatorBetsSize > MaxBatchSizeBytes && currentBatchSize+betSize > MaxBatchSizeBytes) {
+			c.sendBatch(currentBatch)
+			currentBatch = make([]BetMessage, 0)
+			currentBatchSize = 0
+		}
+
+		currentBatch = append(currentBatch, currentBet)
+		currentBatchSize += betSize + SeparatorBetsSize
+	}
+
+	return nil
+}
+
+func (c *Client) sendBatch(batch []BetMessage) {
+	err := c.socket.Send(batch)
 	if err != nil {
 		log.Errorf("action: batch_enviado | result: fail | client_id: %v | error: %v", c.config.ID, err)
 		return
@@ -141,39 +194,4 @@ func (c *Client) recvWinners() {
 		return
 	}
 	log.Infof("action: consulta_ganadores | result: success | cant_ganadores: %v", len(winners))
-}
-
-func parseBets(agencyId string, agencyFilePath string) []BetMessage {
-	agencyFile, err := os.Open(agencyFilePath)
-	if err != nil {
-		log.Criticalf("action: file_open | result: fail | client_id: %v | error: %v", agencyId, err)
-		return nil
-	}
-	defer func(agencyFile *os.File) {
-		closeErr := agencyFile.Close()
-		if closeErr != nil {
-			log.Criticalf("action: file_close | result: fail | client_id: %v | error: %v", agencyId, closeErr)
-		}
-	}(agencyFile)
-
-	fileReader := csv.NewReader(agencyFile)
-	bets := make([]BetMessage, 0)
-
-	for {
-		betLine, readErr := fileReader.Read()
-		if readErr != nil {
-			break
-		}
-
-		bets = append(bets, BetMessage{
-			Agency:    agencyId,
-			Firstname: betLine[0],
-			Lastname:  betLine[1],
-			Document:  betLine[2],
-			Birthdate: betLine[3],
-			Number:    betLine[4],
-		})
-	}
-
-	return bets
 }

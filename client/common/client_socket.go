@@ -9,7 +9,6 @@ import (
 	"net"
 )
 
-const AmountBatchesSizeBytes = 4
 const BatchSizeBytes = 4
 const MaxBatchSizeBytes = 8192
 const SeparatorBetsSize = 1 // Es por el caracter de separacion entre apuestas en el batch
@@ -43,28 +42,17 @@ func (s *ClientSocket) Close() error {
 	return nil
 }
 
-func (s *ClientSocket) Send(bets []BetMessage, batchMaxSize int) error {
+func (s *ClientSocket) Send(batch []BetMessage) error {
 	socketWriter := bufio.NewWriter(s.conn)
-
-	betBatches := createBetBatches(bets, batchMaxSize)
 
 	_, typeMsgErr := socketWriter.Write([]byte{BatchMessage})
 	if typeMsgErr != nil {
 		return typeMsgErr
 	}
 
-	amountBatchesBytes := make([]byte, AmountBatchesSizeBytes)
-	binary.BigEndian.PutUint32(amountBatchesBytes, uint32(len(betBatches)))
-	_, writeErr := socketWriter.Write(amountBatchesBytes)
-	if writeErr != nil {
-		return fmt.Errorf("write error: %v", writeErr)
-	}
-
-	for _, batch := range betBatches {
-		batchErr := s.sendBatch(batch, socketWriter)
-		if batchErr != nil {
-			return batchErr
-		}
+	batchErr := s.sendBatch(batch, socketWriter)
+	if batchErr != nil {
+		return batchErr
 	}
 
 	if err := socketWriter.Flush(); err != nil {
@@ -153,34 +141,4 @@ func (s *ClientSocket) RecvWinners() ([]int, error) {
 	}
 
 	return winnersDocuments, nil
-}
-
-func createBetBatches(bets []BetMessage, maxAmount int) [][]BetMessage {
-	batches := make([][]BetMessage, 0)
-	currentBatch := make([]BetMessage, 0)
-	var currentBatchSize int
-
-	for _, bet := range bets {
-		encoded := bet.Encode()
-		betSize := len(encoded)
-
-		// Me fijo que el batch no supere la cantidad maxima de apuestas
-		// y que el tamaño del batch no supere el tamaño maximo permitido de 8kb
-		// Me fijo si entra con o sin el separador, porque puede ser la apuesta final del batch
-		if len(currentBatch) >= maxAmount ||
-			(currentBatchSize+betSize+SeparatorBetsSize > MaxBatchSizeBytes && currentBatchSize+betSize > MaxBatchSizeBytes) {
-			batches = append(batches, currentBatch)
-			currentBatch = make([]BetMessage, 0)
-			currentBatchSize = 0
-		}
-
-		currentBatch = append(currentBatch, bet)
-		currentBatchSize += betSize + SeparatorBetsSize
-	}
-
-	if len(currentBatch) > 0 {
-		batches = append(batches, currentBatch)
-	}
-
-	return batches
 }

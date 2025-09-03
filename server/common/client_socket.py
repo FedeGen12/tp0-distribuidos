@@ -39,16 +39,13 @@ class ClientSocket:
                 raise OSError("failed to sent data")
             total_bytes_sent += bytes_sent
 
-    def _recv_batches(self):
-        amount_batches = int.from_bytes(self._recv_all(AMOUNT_BATCHES_SIZE_BYTES), "big")
+    def _recv_batch(self):
         bets = []
-
-        for _ in range(amount_batches):
-            batch_size = int.from_bytes(self._recv_all(BATCH_SIZE_BYTES), "big")
-            batch_bytes = self._recv_all(batch_size)
-            for bet_bytes in batch_bytes.split(SEPARATOR_BETS.encode()):
-                bet = Bet(*bet_bytes.decode().split(SEPARATOR))
-                bets.append(bet)
+        batch_size = int.from_bytes(self._recv_all(BATCH_SIZE_BYTES), "big")
+        batch_bytes = self._recv_all(batch_size)
+        for bet_bytes in batch_bytes.split(SEPARATOR_BETS.encode()):
+            bet = Bet(*bet_bytes.decode().split(SEPARATOR))
+            bets.append(bet)
         return bets
 
     def _recv_client_id(self):
@@ -59,7 +56,7 @@ class ClientSocket:
         type_message = int.from_bytes(self._recv_all(TYPE_MESSAGE_SIZE_BYTES), "big")
 
         if type_message == BATCH_MESSAGE:
-            return type_message, self._recv_batches()
+            return type_message, self._recv_batch()
         elif type_message == NOTIFY_MESSAGE:
             return type_message, None
         elif type_message == ID_MESSAGE:
