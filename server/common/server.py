@@ -15,7 +15,13 @@ class Server:
         def sigterm_handler(_signum, _stacktrace):
             logging.info("action: shutdown | result: in_progress | msg: SIGTERM received")
             self._running = False
-            self._server_socket.close()
+            try:
+                self._server_socket.close()
+                logging.info("action: close_server_socket | result: success")
+                logging.info("action: shutdown | result: success")
+            except OSError as e:
+                logging.error(f"action: close_server_socket | result: fail | error: {e}")
+                logging.error(f"action: shutdown | result: fail")
 
         signal.signal(signal.SIGTERM, sigterm_handler)
 
@@ -56,7 +62,12 @@ class Server:
                 logging.error(f"action: apuesta_recibida | result: fail | error: {e}")
                 break
 
-        client_sock.close()
+        try:
+            client_sock.close()
+            logging.info("action: close_client_socket | result: success")
+        except OSError as e:
+            logging.error(f"action: close_client_socket | result: fail | error: {e}")
+
         self._running = False
 
     def __accept_new_connection(self):

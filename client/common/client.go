@@ -144,17 +144,17 @@ func (c *Client) sendBatch(batch []BetMessage) {
 }
 
 func (c *Client) sigtermHandler() {
-	log.Infof("action: shutdown | result: success | client_id: %v | msg: SIGTERM received", c.config.ID)
+	log.Infof("action: shutdown | result: in_progress | client_id: %v | msg: SIGTERM received", c.config.ID)
 	if c.socket != nil {
 		err := c.socket.Close()
 		if err != nil {
-			log.Criticalf(
-				"action: close socket | result: fail | client_id: %v | error: %v",
-				c.config.ID,
-				err,
-			)
+			log.Errorf("action: shutdown_close_socket | result: fail | client_id: %v | error: %v", c.config.ID, err)
+			log.Errorf("action: shutdown | result: fail | client_id: %v", c.config.ID)
 			return
+		} else {
+			log.Infof("action: shutdown_close_socket | result: success | client_id: %v", c.config.ID)
 		}
 	}
+	log.Infof("action: shutdown | result: success | client_id: %v", c.config.ID)
 	return
 }
