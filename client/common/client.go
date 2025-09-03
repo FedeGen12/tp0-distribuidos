@@ -67,13 +67,14 @@ func (c *Client) StartClientLoop() {
 			if c.conn != nil {
 				err := c.conn.Close()
 				if err != nil {
-					log.Errorf("action: close_socket | result: fail | client_id: %v | error: %v", c.config.ID, err)
+					log.Errorf("action: shutdown_close_socket | result: fail | client_id: %v | error: %v", c.config.ID, err)
 					log.Errorf("action: shutdown | result: fail | client_id: %v", c.config.ID)
+					return
 				} else {
-					log.Infof("action: close_socket | result: success | client_id: %v", c.config.ID)
-					log.Infof("action: shutdown | result: success | client_id: %v", c.config.ID)
+					log.Infof("action: shutdown_close_socket | result: success | client_id: %v", c.config.ID)
 				}
 			}
+			log.Infof("action: shutdown | result: success | client_id: %v", c.config.ID)
 			return
 		default:
 			// Create the connection the server in every loop iteration. Send an
@@ -87,7 +88,15 @@ func (c *Client) StartClientLoop() {
 				msgID,
 			)
 			msg, err := bufio.NewReader(c.conn).ReadString('\n')
-			c.conn.Close()
+
+			err2 := c.conn.Close()
+			if err2 != nil {
+				log.Errorf("action: close_socket | result: fail | client_id: %v | error: %v", c.config.ID, err2)
+				return
+			} else {
+				log.Infof("action: close_socket | result: success | client_id: %v", c.config.ID)
+				c.conn = nil
+			}
 
 			if err != nil {
 				log.Errorf("action: receive_message | result: fail | client_id: %v | error: %v",
