@@ -43,14 +43,19 @@ class Server:
         If a problem arises in the communication with the client, the
         client socket will also be closed
         """
-        try:
-            bets = client_sock.recv()
-            store_bets(bets)
-            logging.info(f"action: apuesta_recibida | result: success | cantidad: {len(bets)}")
-        except OSError as e:
-            logging.error(f"action: apuesta_recibida | result: fail | error: {e}")
-        finally:
-            client_sock.close()
+        while True:
+            try:
+                bets = client_sock.recv()
+                if bets is None:
+                    # Cliente terminó de enviar batches
+                    break
+
+                store_bets(bets)
+                logging.info(f"action: apuesta_recibida | result: success | cantidad: {len(bets)}")
+            except OSError as e:
+                logging.error(f"action: apuesta_recibida | result: fail | error: {e}")
+            finally:
+                client_sock.close()
 
     def __accept_new_connection(self):
         """

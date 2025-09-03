@@ -23,16 +23,19 @@ class ClientSocket:
         return bytes(bytes_received)
 
     def recv(self):
-        amount_batches = int.from_bytes(self._recv_all(AMOUNT_BATCHES_SIZE_BYTES), "big")
         bets = []
 
-        for _ in range(amount_batches):
-            batch_size = int.from_bytes(self._recv_all(BATCH_SIZE_BYTES), "big")
-            batch_bytes = self._recv_all(batch_size)
-            for bet_bytes in batch_bytes.split(SEPARATOR_BETS.encode()):
-                bet = Bet(*bet_bytes.decode().split(SEPARATOR))
-                bets.append(bet)
+        batch_size_bytes = self._recv_all(BATCH_SIZE_BYTES)
+        if batch_size_bytes is None:
+            # Socket cerrado antes de arrancar un nuevo batch
+            # Significa que el cliente terminó de enviar batches
+            return None
 
+        batch_size = int.from_bytes(batch_size_bytes, "big")
+        batch_bytes = self._recv_all(batch_size)
+        for bet_bytes in batch_bytes.split(SEPARATOR_BETS.encode()):
+            bet = Bet(*bet_bytes.decode().split(SEPARATOR))
+            bets.append(bet)
         return bets
 
     def close(self):
