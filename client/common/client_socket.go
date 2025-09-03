@@ -9,7 +9,6 @@ import (
 	"net"
 )
 
-const AmountBatchesSizeBytes = 4
 const BatchSizeBytes = 4
 const MaxBatchSizeBytes = 8192
 const SeparatorBetsSize = 1 // Es por el caracter de separacion entre apuestas en el batch
@@ -43,28 +42,17 @@ func (s *ClientSocket) Close() error {
 	return nil
 }
 
-func (s *ClientSocket) Send(bets []BetMessage, batchMaxSize int) error {
+func (s *ClientSocket) Send(batch []BetMessage) error {
 	socketWriter := bufio.NewWriter(s.conn)
-
-	betBatches := CreateBetBatches(bets, batchMaxSize)
 
 	_, typeMsgErr := socketWriter.Write([]byte{BatchMessage})
 	if typeMsgErr != nil {
 		return typeMsgErr
 	}
 
-	amountBatchesBytes := make([]byte, AmountBatchesSizeBytes)
-	binary.BigEndian.PutUint32(amountBatchesBytes, uint32(len(betBatches)))
-	_, writeErr := socketWriter.Write(amountBatchesBytes)
-	if writeErr != nil {
-		return fmt.Errorf("write error: %v", writeErr)
-	}
-
-	for _, batch := range betBatches {
-		batchErr := s.sendBatch(batch, socketWriter)
-		if batchErr != nil {
-			return batchErr
-		}
+	batchErr := s.sendBatch(batch, socketWriter)
+	if batchErr != nil {
+		return batchErr
 	}
 
 	if err := socketWriter.Flush(); err != nil {

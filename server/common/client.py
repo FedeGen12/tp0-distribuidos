@@ -1,7 +1,6 @@
 from common.utils import Bet
 from common.server_utils import recv_all_by_socket, send_all_by_socket
 
-AMOUNT_BATCHES_SIZE_BYTES = 4
 BATCH_SIZE_BYTES = 4
 SEPARATOR = ","
 SEPARATOR_BETS = ";"
@@ -23,16 +22,13 @@ class ClientSocket:
     def __init__(self, client_socket):
         self._socket = client_socket
 
-    def _recv_batches(self):
-        amount_batches = int.from_bytes(recv_all_by_socket(self._socket, AMOUNT_BATCHES_SIZE_BYTES), "big")
+    def _recv_batch(self):
         bets = []
-
-        for _ in range(amount_batches):
-            batch_size = int.from_bytes(recv_all_by_socket(self._socket, BATCH_SIZE_BYTES), "big")
-            batch_bytes = recv_all_by_socket(self._socket, batch_size)
-            for bet_bytes in batch_bytes.split(SEPARATOR_BETS.encode()):
-                bet = Bet(*bet_bytes.decode().split(SEPARATOR))
-                bets.append(bet)
+        batch_size = int.from_bytes(recv_all_by_socket(self._socket, BATCH_SIZE_BYTES), "big")
+        batch_bytes = recv_all_by_socket(self._socket, batch_size)
+        for bet_bytes in batch_bytes.split(SEPARATOR_BETS.encode()):
+            bet = Bet(*bet_bytes.decode().split(SEPARATOR))
+            bets.append(bet)
         return bets
 
     def _recv_client_id(self):
@@ -43,7 +39,7 @@ class ClientSocket:
         type_message = int.from_bytes(recv_all_by_socket(self._socket, TYPE_MESSAGE_SIZE_BYTES), "big")
 
         if type_message == BATCH_MESSAGE:
-            return type_message, self._recv_batches()
+            return type_message, self._recv_batch()
         elif type_message == NOTIFY_MESSAGE:
             return type_message, None
         elif type_message == ID_MESSAGE:
