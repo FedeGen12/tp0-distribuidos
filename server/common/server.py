@@ -68,8 +68,6 @@ class Server:
         except OSError as e:
             logging.error(f"action: close_client_socket | result: fail | error: {e}")
 
-        self._running = False
-
     def __accept_new_connection(self):
         """
         Accept new connections

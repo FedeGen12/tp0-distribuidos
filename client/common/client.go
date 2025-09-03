@@ -22,6 +22,7 @@ type ClientConfig struct {
 type Client struct {
 	config ClientConfig
 	socket *ClientSocket
+	sigs   chan os.Signal
 }
 
 // NewClient Initializes a new client receiving the configuration
@@ -29,6 +30,7 @@ type Client struct {
 func NewClient(config ClientConfig) *Client {
 	client := &Client{
 		config: config,
+		sigs:   make(chan os.Signal, 1),
 	}
 	return client
 }
@@ -44,18 +46,18 @@ func (c *Client) createClientSocket() error {
 			c.config.ID,
 			err,
 		)
+		return err
 	}
 	c.socket = socket
 	return nil
 }
 
 func (c *Client) StartClientLoop(agencyFilePath string) {
-	sigs := make(chan os.Signal, 1)
-	signal.Notify(sigs, syscall.SIGTERM)
-	defer close(sigs)
+	signal.Notify(c.sigs, syscall.SIGTERM)
+	defer close(c.sigs)
 
 	select {
-	case <-sigs:
+	case <-c.sigs:
 		c.sigtermHandler()
 		return
 	default:
@@ -65,73 +67,79 @@ func (c *Client) StartClientLoop(agencyFilePath string) {
 		defer func(socket *ClientSocket) {
 			err := socket.Close()
 			if err != nil {
-				log.Criticalf(
-					"action: close socket | result: fail | client_id: %v | error: %v",
-					c.config.ID,
-					err,
-				)
+				log.Errorf("action: close_socket | result: fail | client_id: %v | error: %v", c.config.ID, err)
+				return
+			} else {
+				log.Infof("action: close_socket | result: success | client_id: %v", c.config.ID)
+				c.socket = nil
 			}
 		}(c.socket)
 
 		agencyFile, err := os.Open(agencyFilePath)
 		if err != nil {
-			log.Criticalf("action: file_open | result: fail | client_id: %v | error: %v", c.config.ID, err)
+			log.Errorf("action: file_open | result: fail | client_id: %v | error: %v", c.config.ID, err)
 			return
 		}
 		defer func(agencyFile *os.File) {
 			closeErr := agencyFile.Close()
 			if closeErr != nil {
-				log.Criticalf("action: file_close | result: fail | client_id: %v | error: %v", c.config.ID, closeErr)
+				log.Errorf("action: file_close | result: fail | client_id: %v | error: %v", c.config.ID, closeErr)
+				return
+			} else {
+				log.Infof("action: file_close | result: success | client_id: %v", c.config.ID)
+				c.socket = nil
 			}
 		}(agencyFile)
 
-		err = c.sendBets(c.config.ID, agencyFile)
-		if err != nil {
-			return
-		}
+		c.sendBets(c.config.ID, agencyFile)
 	}
 }
 
-func (c *Client) sendBets(agencyId string, agencyFile *os.File) error {
+func (c *Client) sendBets(agencyId string, agencyFile *os.File) {
 	fileReader := csv.NewReader(agencyFile)
 	currentBatch := make([]BetMessage, 0)
 	var currentBatchSize int
 
 	for {
-		betLine, readErr := fileReader.Read()
-		if readErr != nil {
-			if len(currentBatch) > 0 {
-				c.sendBatch(currentBatch)
+		select {
+		case <-c.sigs:
+			c.sigtermHandler()
+			return
+		default:
+			betLine, readErr := fileReader.Read()
+			if readErr != nil {
+				if len(currentBatch) > 0 {
+					c.sendBatch(currentBatch)
+				}
+				log.Infof("action: send_bets | result: success | client_id: %v", c.config.ID)
+				return
 			}
-			break
+
+			currentBet := BetMessage{
+				Agency:    agencyId,
+				Firstname: betLine[0],
+				Lastname:  betLine[1],
+				Document:  betLine[2],
+				Birthdate: betLine[3],
+				Number:    betLine[4],
+			}
+
+			betSize := len(currentBet.Encode())
+
+			// Me fijo que el batch no supere la cantidad maxima de apuestas
+			// y que el tamaño del batch no supere el tamaño maximo permitido de 8kb
+			// Me fijo si entra con o sin el separador, porque puede ser la apuesta final del batch
+			if len(currentBatch) >= c.config.BatchMaxAmount ||
+				(currentBatchSize+betSize+SeparatorBetsSize > MaxBatchSizeBytes && currentBatchSize+betSize > MaxBatchSizeBytes) {
+				c.sendBatch(currentBatch)
+				currentBatch = make([]BetMessage, 0)
+				currentBatchSize = 0
+			}
+
+			currentBatch = append(currentBatch, currentBet)
+			currentBatchSize += betSize + SeparatorBetsSize
 		}
-
-		currentBet := BetMessage{
-			Agency:    agencyId,
-			Firstname: betLine[0],
-			Lastname:  betLine[1],
-			Document:  betLine[2],
-			Birthdate: betLine[3],
-			Number:    betLine[4],
-		}
-
-		betSize := len(currentBet.Encode())
-
-		// Me fijo que el batch no supere la cantidad maxima de apuestas
-		// y que el tamaño del batch no supere el tamaño maximo permitido de 8kb
-		// Me fijo si entra con o sin el separador, porque puede ser la apuesta final del batch
-		if len(currentBatch) >= c.config.BatchMaxAmount ||
-			(currentBatchSize+betSize+SeparatorBetsSize > MaxBatchSizeBytes && currentBatchSize+betSize > MaxBatchSizeBytes) {
-			c.sendBatch(currentBatch)
-			currentBatch = make([]BetMessage, 0)
-			currentBatchSize = 0
-		}
-
-		currentBatch = append(currentBatch, currentBet)
-		currentBatchSize += betSize + SeparatorBetsSize
 	}
-
-	return nil
 }
 
 func (c *Client) sendBatch(batch []BetMessage) {
