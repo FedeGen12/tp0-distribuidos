@@ -58,13 +58,8 @@ func (c *Client) StartClientLoop(agencyFilePath string) {
 			return
 		}
 		defer func(socket *ClientSocket) {
-			err := socket.Close()
-			if err != nil {
-				log.Criticalf(
-					"action: close socket | result: fail | client_id: %v | error: %v",
-					c.config.ID,
-					err,
-				)
+			if err := socket.Close(); err != nil {
+				log.Criticalf("action: close socket | result: fail | client_id: %v | error: %v", c.config.ID, err)
 			}
 		}(c.socket)
 
@@ -76,8 +71,7 @@ func (c *Client) StartClientLoop(agencyFilePath string) {
 			return
 		}
 		defer func(agencyFile *os.File) {
-			closeErr := agencyFile.Close()
-			if closeErr != nil {
+			if closeErr := agencyFile.Close(); closeErr != nil {
 				log.Criticalf("action: file_close | result: fail | client_id: %v | error: %v", c.config.ID, closeErr)
 			}
 		}(agencyFile)
@@ -148,13 +142,8 @@ func (c *Client) sendBets(agencyId string, agencyFile *os.File) error {
 func (c *Client) sigtermHandler() {
 	log.Infof("action: shutdown | result: success | client_id: %v | msg: SIGTERM received", c.config.ID)
 	if c.socket != nil {
-		err := c.socket.Close()
-		if err != nil {
-			log.Criticalf(
-				"action: close socket | result: fail | client_id: %v | error: %v",
-				c.config.ID,
-				err,
-			)
+		if err := c.socket.Close(); err != nil {
+			log.Criticalf("action: close socket | result: fail | client_id: %v | error: %v", c.config.ID, err)
 			return
 		}
 	}

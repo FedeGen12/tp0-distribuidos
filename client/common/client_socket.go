@@ -35,11 +35,7 @@ func BindCLientSocket(address string) (*ClientSocket, error) {
 }
 
 func (s *ClientSocket) Close() error {
-	err := s.conn.Close()
-	if err != nil {
-		return err
-	}
-	return nil
+	return s.conn.Close()
 }
 
 func (s *ClientSocket) Send(batch []BetMessage) error {
