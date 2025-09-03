@@ -63,7 +63,7 @@ func (c *Client) StartClientLoop() {
 	for msgID := 1; msgID <= c.config.LoopAmount; msgID++ {
 		select {
 		case <-sigs:
-			log.Infof("action: shutdown | result: in-progress | client_id: %v | msg: SIGTERM received", c.config.ID)
+			log.Infof("action: shutdown | result: in_progress | client_id: %v | msg: SIGTERM received", c.config.ID)
 			if c.conn != nil {
 				err := c.conn.Close()
 				if err != nil {
