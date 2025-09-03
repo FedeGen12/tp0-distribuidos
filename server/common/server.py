@@ -54,8 +54,10 @@ class Server:
                 logging.info(f"action: apuesta_recibida | result: success | cantidad: {len(bets)}")
             except OSError as e:
                 logging.error(f"action: apuesta_recibida | result: fail | error: {e}")
-            finally:
-                client_sock.close()
+                break
+
+        client_sock.close()
+        self._running = False
 
     def __accept_new_connection(self):
         """

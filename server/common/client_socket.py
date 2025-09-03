@@ -16,7 +16,11 @@ class ClientSocket:
 
         while len(bytes_received) < bytes_to_recv:
             bytes_read = self._socket.recv(bytes_to_recv - len(bytes_received), socket.MSG_WAITALL)
+
             if not bytes_read:
+                if len(bytes_received) == 0:
+                    # todavía no recibí nada, socket cerrado
+                    return None
                 raise OSError("failed to receive data")
             bytes_received.extend(bytes_read)
 
