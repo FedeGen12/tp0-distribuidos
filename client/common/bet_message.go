@@ -68,3 +68,33 @@ func obtainBets(agencyId string, agencyFile *os.File) []BetMessage {
 
 	return bets
 }
+
+func CreateBetBatches(bets []BetMessage, maxAmount int) [][]BetMessage {
+	batches := make([][]BetMessage, 0)
+	currentBatch := make([]BetMessage, 0)
+	var currentBatchSize int
+
+	for _, bet := range bets {
+		encoded := bet.Encode()
+		betSize := len(encoded)
+
+		// Me fijo que el batch no supere la cantidad maxima de apuestas
+		// y que el tamaño del batch no supere el tamaño maximo permitido de 8kb
+		// Me fijo si entra con o sin el separador, porque puede ser la apuesta final del batch
+		if len(currentBatch) >= maxAmount ||
+			(currentBatchSize+betSize+SeparatorBetsSize > MaxBatchSizeBytes && currentBatchSize+betSize > MaxBatchSizeBytes) {
+			batches = append(batches, currentBatch)
+			currentBatch = make([]BetMessage, 0)
+			currentBatchSize = 0
+		}
+
+		currentBatch = append(currentBatch, bet)
+		currentBatchSize += betSize + SeparatorBetsSize
+	}
+
+	if len(currentBatch) > 0 {
+		batches = append(batches, currentBatch)
+	}
+
+	return batches
+}
