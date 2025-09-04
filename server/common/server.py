@@ -62,7 +62,7 @@ class Server:
             try:
                 agency_process.join()
                 agency.socket.close()
-                logging.info(f"action: close_agency | result: success | client_id: {agency_id}")
+                logging.info(f"action: close_agency | result: success | client_id: {agency.id}")
             except OSError as e:
                 logging.error(f"action: close_agency | result: fail | error: {e}")
 
