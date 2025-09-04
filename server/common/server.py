@@ -17,7 +17,7 @@ class Server:
         self._notify_barrier = Barrier(amount_clients)
         self.agencies = []
 
-        def sigterm_handler(_signum, _stacktrace):
+        def signal_handler(_signum, _stacktrace):
             logging.info("action: shutdown | result: in_progress | msg: SIGTERM received")
             self._running = False
             try:
@@ -29,7 +29,8 @@ class Server:
                 logging.error(f"action: close_server_socket | result: fail | error: {e}")
                 logging.error(f"action: shutdown | result: fail")
 
-        signal.signal(signal.SIGTERM, sigterm_handler)
+        signal.signal(signal.SIGTERM, signal_handler)
+        signal.signal(signal.SIGINT, signal_handler)
 
     def run(self):
         """

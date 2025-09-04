@@ -50,12 +50,12 @@ func (c *Client) createClientSocket() error {
 }
 
 func (c *Client) StartClientLoop(agencyFilePath string) {
-	signal.Notify(c.sigs, syscall.SIGTERM)
+	signal.Notify(c.sigs, syscall.SIGTERM, syscall.SIGINT)
 	defer close(c.sigs)
 
 	go func() {
 		<-c.sigs
-		c.sigtermHandler()
+		c.signalHandler()
 	}()
 
 	if c.createClientSocket() != nil {
@@ -157,7 +157,7 @@ func (c *Client) sendBets(agencyId string, agencyFile *os.File) error {
 	return nil
 }
 
-func (c *Client) sigtermHandler() {
+func (c *Client) signalHandler() {
 	log.Infof("action: shutdown | result: in_progress | client_id: %v | msg: SIGTERM received", c.config.ID)
 	if c.socket != nil {
 		err := c.socket.Close()
