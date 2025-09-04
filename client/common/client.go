@@ -66,13 +66,15 @@ func (c *Client) StartClientLoop(agencyFilePath string) {
 			return
 		}
 		defer func(socket *ClientSocket) {
-			err := socket.Close()
-			if err != nil {
-				log.Errorf("action: close_socket | result: fail | client_id: %v | error: %v", c.config.ID, err)
-				return
-			} else {
-				log.Infof("action: close_socket | result: success | client_id: %v", c.config.ID)
-				c.socket = nil
+			if c.socket != nil {
+				err := socket.Close()
+				if err != nil {
+					log.Errorf("action: close_socket | result: fail | client_id: %v | error: %v", c.config.ID, err)
+					return
+				} else {
+					log.Infof("action: close_socket | result: success | client_id: %v", c.config.ID)
+					c.socket = nil
+				}
 			}
 		}(c.socket)
 
@@ -163,6 +165,7 @@ func (c *Client) sigtermHandler() {
 			return
 		} else {
 			log.Infof("action: shutdown_close_socket | result: success | client_id: %v", c.config.ID)
+			c.socket = nil
 		}
 	}
 	log.Infof("action: shutdown | result: success | client_id: %v", c.config.ID)
