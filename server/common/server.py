@@ -43,9 +43,9 @@ class Server:
 
         self._server_socket.close()
 
-        for agency, agency_socket in self.agencies:
-            agency.join()
-            agency_socket.close()
+        for agency_process, agency in self.agencies:
+            agency_process.join()
+            agency.socket.close()
 
     def __handle_client_connection(self, client, lock_bets_file, notify_barrier):
         """
