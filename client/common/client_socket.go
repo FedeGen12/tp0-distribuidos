@@ -33,10 +33,10 @@ func (s *ClientSocket) Close() error {
 	return nil
 }
 
-func (s *ClientSocket) Send(batch []BetMessage) error {
+func (s *ClientSocket) Send(batch []BetMessage, isFinalBatch bool) error {
 	socketWriter := bufio.NewWriter(s.conn)
 
-	batchErr := s.sendBatch(batch, socketWriter)
+	batchErr := s.sendBatch(batch, socketWriter, isFinalBatch)
 	if batchErr != nil {
 		return batchErr
 	}
@@ -48,7 +48,7 @@ func (s *ClientSocket) Send(batch []BetMessage) error {
 	return nil
 }
 
-func (s *ClientSocket) sendBatch(batch []BetMessage, socketWriter *bufio.Writer) error {
+func (s *ClientSocket) sendBatch(batch []BetMessage, socketWriter *bufio.Writer, isFinalBatch bool) error {
 	encodedBets := make([][]byte, 0)
 
 	for _, bet := range batch {
@@ -59,10 +59,15 @@ func (s *ClientSocket) sendBatch(batch []BetMessage, socketWriter *bufio.Writer)
 	batchSizeBytes := make([]byte, BatchSizeBytes)
 	binary.BigEndian.PutUint32(batchSizeBytes, uint32(len(batchBytes)))
 
+	finalBatchByte := []byte{0}
+	if isFinalBatch {
+		finalBatchByte[0] = 1
+	}
+	_, err0 := socketWriter.Write(finalBatchByte)
 	_, err1 := socketWriter.Write(batchSizeBytes)
 	_, err2 := socketWriter.Write(batchBytes)
-	if err1 != nil || err2 != nil {
-		return fmt.Errorf("write error: %v %v", err1, err2)
+	if err0 != nil || err1 != nil || err2 != nil {
+		return fmt.Errorf("write error: %v %v %v", err0, err1, err2)
 	}
 
 	return nil

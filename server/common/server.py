@@ -1,5 +1,6 @@
 import signal
 import logging
+import socket
 
 from common.client_socket import ClientSocket
 from common.utils import store_bets
@@ -16,7 +17,7 @@ class Server:
             logging.info("action: shutdown | result: in_progress | msg: SIGTERM received")
             self._running = False
             try:
-                self._server_socket.close()
+                self._server_socket.shutdown(socket.SHUT_RDWR)
                 logging.info("action: close_server_socket | result: success")
                 logging.info("action: shutdown | result: success")
             except OSError as e:
@@ -40,6 +41,7 @@ class Server:
                 self.__handle_client_connection(client_sock)
             except OSError:
                 # si se cerró el socket desde sigterm_handler → salir del loop
+                logging.info("action: shutdown del accept | result: success")
                 break
 
     def __handle_client_connection(self, client_sock):
@@ -51,13 +53,16 @@ class Server:
         """
         while True:
             try:
-                bets = client_sock.recv()
+                bets, is_final = client_sock.recv()
                 if bets is None:
-                    # Cliente terminó de enviar batches
                     break
 
                 store_bets(bets)
                 logging.info(f"action: apuesta_recibida | result: success | cantidad: {len(bets)}")
+
+                if is_final:
+                    logging.info("Último batch recibido de este cliente")
+                    break
             except OSError as e:
                 logging.error(f"action: apuesta_recibida | result: fail | error: {e}")
                 break

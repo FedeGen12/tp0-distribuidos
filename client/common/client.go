@@ -5,6 +5,7 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 
 	"github.com/op/go-logging"
 )
@@ -109,7 +110,7 @@ func (c *Client) sendBets(agencyId string, agencyFile *os.File) {
 			betLine, readErr := fileReader.Read()
 			if readErr != nil {
 				if len(currentBatch) > 0 {
-					c.sendBatch(currentBatch)
+					c.sendBatch(currentBatch, true)
 				}
 				log.Infof("action: send_bets | result: success | client_id: %v", c.config.ID)
 				return
@@ -131,9 +132,10 @@ func (c *Client) sendBets(agencyId string, agencyFile *os.File) {
 			// Me fijo si entra con o sin el separador, porque puede ser la apuesta final del batch
 			if len(currentBatch) >= c.config.BatchMaxAmount ||
 				(currentBatchSize+betSize+SeparatorBetsSize > MaxBatchSizeBytes && currentBatchSize+betSize > MaxBatchSizeBytes) {
-				c.sendBatch(currentBatch)
+				c.sendBatch(currentBatch, false)
 				currentBatch = make([]BetMessage, 0)
 				currentBatchSize = 0
+				time.Sleep(20 * time.Millisecond)
 			}
 
 			currentBatch = append(currentBatch, currentBet)
@@ -142,8 +144,8 @@ func (c *Client) sendBets(agencyId string, agencyFile *os.File) {
 	}
 }
 
-func (c *Client) sendBatch(batch []BetMessage) {
-	err := c.socket.Send(batch)
+func (c *Client) sendBatch(batch []BetMessage, isFinalBatch bool) {
+	err := c.socket.Send(batch, isFinalBatch)
 	if err != nil {
 		log.Errorf("action: batch_enviado | result: fail | client_id: %v | error: %v", c.config.ID, err)
 		return

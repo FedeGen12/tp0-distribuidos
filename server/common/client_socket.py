@@ -2,6 +2,7 @@ import socket
 
 from common.utils import Bet
 
+FLAG_FINAL_BATCH_SIZE = 1
 AMOUNT_BATCHES_SIZE_BYTES = 4
 BATCH_SIZE_BYTES = 4
 SEPARATOR = ","
@@ -29,18 +30,24 @@ class ClientSocket:
     def recv(self):
         bets = []
 
+        is_final_batch_byte = self._recv_all(FLAG_FINAL_BATCH_SIZE)
+        if is_final_batch_byte is None:
+            # Socket cerrado antes de empezar
+            return None, None
+        is_final_batch = bool(int.from_bytes(is_final_batch_byte, "big"))
+
         batch_size_bytes = self._recv_all(BATCH_SIZE_BYTES)
         if batch_size_bytes is None:
-            # Socket cerrado antes de arrancar un nuevo batch
-            # Significa que el cliente terminó de enviar batches
-            return None
+            # Socket cerrado antes de tamaño
+            return None, None
 
         batch_size = int.from_bytes(batch_size_bytes, "big")
         batch_bytes = self._recv_all(batch_size)
         for bet_bytes in batch_bytes.split(SEPARATOR_BETS.encode()):
             bet = Bet(*bet_bytes.decode().split(SEPARATOR))
             bets.append(bet)
-        return bets
+
+        return bets, is_final_batch
 
     def close(self):
         self._socket.close()
