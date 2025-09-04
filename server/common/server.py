@@ -1,5 +1,6 @@
 import signal
 import logging
+import socket
 from multiprocessing import Process, Lock, Barrier
 from common.client import BATCH_MESSAGE, NOTIFY_MESSAGE
 from common.utils import store_bets
@@ -19,7 +20,14 @@ class Server:
         def sigterm_handler(_signum, _stacktrace):
             logging.info("action: shutdown | result: in_progress | msg: SIGTERM received")
             self._running = False
-            self._server_socket.close()
+            try:
+                self._server_socket.shutdown(socket.SHUT_RDWR)
+                logging.info("action: close_server_socket | result: success")
+                self._close_agencies()
+                logging.info("action: shutdown | result: success")
+            except OSError as e:
+                logging.error(f"action: close_server_socket | result: fail | error: {e}")
+                logging.error(f"action: shutdown | result: fail")
 
         signal.signal(signal.SIGTERM, sigterm_handler)
 
@@ -39,13 +47,24 @@ class Server:
 
             except OSError:
                 # si se cerró el socket desde sigterm_handler → salir del loop
-                break
+                logging.info("action: shutdown del socket | result: success")
+                return
+
+        if not self._running:
+            logging.info("action: shutdown_server | result: success")
+            return
 
         self._server_socket.close()
+        self._close_agencies()
 
+    def _close_agencies(self):
         for agency_process, agency in self.agencies:
-            agency_process.join()
-            agency.socket.close()
+            try:
+                agency_process.join()
+                agency.socket.close()
+                logging.info(f"action: close_agency | result: success | client_id: {agency_id}")
+            except OSError as e:
+                logging.error(f"action: close_agency | result: fail | error: {e}")
 
     def __handle_client_connection(self, client, lock_bets_file, notify_barrier):
         """

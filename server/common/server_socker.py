@@ -20,3 +20,6 @@ class ServerSocket:
 
     def close(self):
         self._socket.close()
+
+    def shutdown(self, how:int):
+        self._socket.shutdown(how)
