@@ -23,6 +23,7 @@ type ClientConfig struct {
 type Client struct {
 	config ClientConfig
 	socket *ClientSocket
+	sigs   chan os.Signal
 }
 
 // NewClient Initializes a new client receiving the configuration
@@ -30,6 +31,7 @@ type Client struct {
 func NewClient(config ClientConfig) *Client {
 	client := &Client{
 		config: config,
+		sigs:   make(chan os.Signal, 1),
 	}
 	return client
 }
@@ -45,18 +47,18 @@ func (c *Client) createClientSocket() error {
 			c.config.ID,
 			err,
 		)
+		return err
 	}
 	c.socket = socket
 	return nil
 }
 
 func (c *Client) StartClientLoop(agencyFilePath string) {
-	sigs := make(chan os.Signal, 1)
-	signal.Notify(sigs, syscall.SIGTERM)
-	defer close(sigs)
+	signal.Notify(c.sigs, syscall.SIGTERM)
+	defer close(c.sigs)
 
 	select {
-	case <-sigs:
+	case <-c.sigs:
 		c.sigtermHandler()
 		return
 	default:
@@ -64,13 +66,15 @@ func (c *Client) StartClientLoop(agencyFilePath string) {
 			return
 		}
 		defer func(socket *ClientSocket) {
-			err := socket.Close()
-			if err != nil {
-				log.Criticalf(
-					"action: close socket | result: fail | client_id: %v | error: %v",
-					c.config.ID,
-					err,
-				)
+			if c.socket != nil {
+				err := socket.Close()
+				if err != nil {
+					log.Errorf("action: close_socket | result: fail | client_id: %v | error: %v", c.config.ID, err)
+					return
+				} else {
+					log.Infof("action: close_socket | result: success | client_id: %v", c.config.ID)
+					c.socket = nil
+				}
 			}
 		}(c.socket)
 
@@ -85,6 +89,7 @@ func (c *Client) StartClientLoop(agencyFilePath string) {
 			closeErr := agencyFile.Close()
 			if closeErr != nil {
 				log.Criticalf("action: file_close | result: fail | client_id: %v | error: %v", c.config.ID, closeErr)
+				return
 			}
 		}(agencyFile)
 
@@ -150,18 +155,19 @@ func (c *Client) sendBatch(batch []BetMessage) {
 }
 
 func (c *Client) sigtermHandler() {
-	log.Infof("action: shutdown | result: success | client_id: %v | msg: SIGTERM received", c.config.ID)
+	log.Infof("action: shutdown | result: in_progress | client_id: %v | msg: SIGTERM received", c.config.ID)
 	if c.socket != nil {
 		err := c.socket.Close()
 		if err != nil {
-			log.Criticalf(
-				"action: close socket | result: fail | client_id: %v | error: %v",
-				c.config.ID,
-				err,
-			)
+			log.Errorf("action: shutdown_close_socket | result: fail | client_id: %v | error: %v", c.config.ID, err)
+			log.Errorf("action: shutdown | result: fail | client_id: %v", c.config.ID)
 			return
+		} else {
+			log.Infof("action: shutdown_close_socket | result: success | client_id: %v", c.config.ID)
+			c.socket = nil
 		}
 	}
+	log.Infof("action: shutdown | result: success | client_id: %v", c.config.ID)
 	return
 }
 

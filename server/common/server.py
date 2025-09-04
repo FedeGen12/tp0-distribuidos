@@ -1,5 +1,6 @@
 import signal
 import logging
+import socket
 
 from common.client_socket import ClientSocket, BATCH_MESSAGE, NOTIFY_MESSAGE
 from common.utils import store_bets, has_won, load_bets
@@ -25,7 +26,13 @@ class Server:
         def sigterm_handler(_signum, _stacktrace):
             logging.info("action: shutdown | result: in_progress | msg: SIGTERM received")
             self._running = False
-            self._server_socket.close()
+            try:
+                self._server_socket.shutdown(socket.SHUT_RDWR)
+                logging.info("action: close_server_socket | result: success")
+                logging.info("action: shutdown | result: success")
+            except OSError as e:
+                logging.error(f"action: close_server_socket | result: fail | error: {e}")
+                logging.error(f"action: shutdown | result: fail")
 
         signal.signal(signal.SIGTERM, sigterm_handler)
 
@@ -46,13 +53,18 @@ class Server:
                 agencies[client_id] = client_sock
             except OSError:
                 # si se cerró el socket desde sigterm_handler → salir del loop
+                logging.info("action: shutdown del accept | result: success")
                 break
 
         self._server_socket.close()
         self._get_winners(agencies)
 
-        for agency_socket in agencies.values():
-            agency_socket.close()
+        for agency_id, agency_socket in agencies.items():
+            try:
+                agency_socket.close()
+                logging.info(f"action: close_client_socket | result: success | client_id: {agency_id}")
+            except OSError as e:
+                logging.error(f"action: close_client_socket | result: fail | error: {e}")
 
     def __handle_client_connection(self, client_sock):
         """
